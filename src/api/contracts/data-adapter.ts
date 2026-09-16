@@ -4,6 +4,7 @@ export interface SimulationInput {
   occupied?: boolean;
   daylightLux?: number;
   currentTemperature?: number;
+  targetTemperature?: number;
   brightnessOverride?: number;
   mode?: "auto" | "manual";
   climateMode?: "auto" | "manual" | "off";

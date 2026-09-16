@@ -3,3 +3,4 @@ export * from "./building.store";
 export * from "./energy.store";
 export * from "./climate.store";
 export * from "./activity.store";
+export * from "./simulation-config.store";

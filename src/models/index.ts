@@ -5,3 +5,4 @@ export * from "./lighting";
 export * from "./climate";
 export * from "./energy";
 export * from "./activity";
+export * from "./scenario";

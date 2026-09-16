@@ -1,5 +1,7 @@
 # PLAN.md — Witmind Frontend Structural MVP
 
+> **Notice:** This document is superseded by `plan-v2.md` (Witmind Mock Lab / Simulation Architecture) wherever conflicting requirements exist (specifically SQLite persistence, editable scenarios, physical curves, and reproducible simulation).
+
 ## 0. Purpose of this document
 
 This file is the **primary implementation guide** for any AI or developer working on the Witmind frontend structural MVP.

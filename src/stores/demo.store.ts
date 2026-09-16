@@ -4,6 +4,7 @@ import { DemoEngine, type EngineStatus, type TelemetrySnapshot } from "../engine
 import type { DemoScenario } from "../engine/scenario";
 import { normalDayScenario } from "../mocks/scenarios";
 import type { Building, OptimizationImpact, SmartActivity, Zone } from "../models";
+import type { ScenarioDefinition, SimulationSample } from "../models/scenario";
 
 export class DemoStore {
   private static instance: DemoStore;
@@ -68,7 +69,7 @@ export class DemoStore {
     return this.engine.getSpeed();
   }
 
-  public getCurrentScenario(): DemoScenario {
+  public getCurrentScenario(): DemoScenario | ScenarioDefinition {
     return this.engine.getCurrentScenario();
   }
 
@@ -109,28 +110,31 @@ export class DemoStore {
     this.engine.reset();
   }
 
-  public step(): void {
-    this.engine.tick();
+  public step(deltaSeconds?: number): void {
+    this.engine.tick(deltaSeconds ?? 1);
   }
 
   public setSpeed(speed: number): void {
     this.engine.setSpeed(speed);
   }
 
-  public selectScenario(scenarioId: string): void {
-    this.engine.loadScenario(scenarioId);
+  public selectScenario(scenarioOrId: ScenarioDefinition | DemoScenario | string): void {
+    this.engine.loadScenario(scenarioOrId);
   }
 
   public updateZoneInput(zoneId: string, input: SimulationInput): void {
     this.adapter.updateSimulationInput(zoneId, input);
   }
 
-  public triggerUpcomingMeeting(): void {
-    this.engine.triggerUpcomingMeeting();
+  public async runFullDayFast(stepSeconds?: number): Promise<SimulationSample[]> {
+    return await this.engine.runFullDayFast(stepSeconds);
   }
 
   public acceptRecommendation(): void {
-    this.engine.acceptRecommendation();
+    const rec = this.engine.getRecommendation();
+    if (rec) {
+      this.engine.acceptRecommendation(rec.id);
+    }
   }
 
   public dismissRecommendation(): void {

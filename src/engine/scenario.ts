@@ -1,5 +1,6 @@
 import type { SimulationInput } from "../api/contracts/data-adapter";
 import type { ZoneType } from "../models";
+export * from "../models/scenario";
 
 export interface ScenarioZoneConfig {
   id: string;

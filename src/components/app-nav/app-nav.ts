@@ -150,7 +150,7 @@ export class AppNav extends LitElement {
       { id: "lighting", label: "Lighting", icon: "💡", href: "#/lighting" },
       { id: "climate", label: "Climate", icon: "🌡️", href: "#/climate" },
       { id: "activity", label: "Activity Feed", icon: "📋", href: "#/activity" },
-      { id: "simulator", label: "Simulator", icon: "⚙️", href: "#/simulator" },
+      { id: "simulator", label: "Mocks", icon: "⚙️", href: "#/simulator" },
     ];
 
     return html`
