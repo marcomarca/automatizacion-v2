@@ -10,6 +10,15 @@ import type { DemoScenario } from "./scenario";
 
 export type EngineStatus = "idle" | "running" | "paused";
 
+export interface TelemetrySnapshot {
+  time: string;
+  baselineKwh: number;
+  actualKwh: number;
+  daylightLux: number;
+  brightness: number;
+  temperature: number;
+}
+
 export interface DemoEngineListener {
   onStateChanged?: () => void;
   onActivityAdded?: (activity: SmartActivity) => void;
@@ -23,11 +32,13 @@ export class DemoEngine {
   private elapsedSeconds = 0;
   private intervalTimer: ReturnType<typeof setInterval> | null = null;
   private listeners: Set<DemoEngineListener> = new Set();
+  private simulatedError = false;
 
   // Internal state
   private buildingState: Building;
   private energyState: OptimizationImpact;
   private activities: SmartActivity[] = [];
+  private history: TelemetrySnapshot[] = [];
   private recommendation: {
     id: string;
     title: string;
@@ -45,6 +56,7 @@ export class DemoEngine {
     this.energyState = this.buildInitialEnergy(initialScenario);
     this.activities = this.buildInitialActivities();
     this.checkInitialRecommendation(initialScenario);
+    this.initHistory();
   }
 
   public subscribe(listener: DemoEngineListener): () => void {
@@ -86,10 +98,16 @@ export class DemoEngine {
   }
 
   public getBuilding(): Building {
+    if (this.simulatedError) {
+      throw new Error("Simulated Connection Failure (Demo Error Mode)");
+    }
     return this.buildingState;
   }
 
   public getEnergy(): OptimizationImpact {
+    if (this.simulatedError) {
+      throw new Error("Simulated Energy Service Unavailable (Demo Error Mode)");
+    }
     return this.energyState;
   }
 
@@ -99,6 +117,19 @@ export class DemoEngine {
 
   public getRecommendation() {
     return this.recommendation;
+  }
+
+  public getHistory(): TelemetrySnapshot[] {
+    return [...this.history];
+  }
+
+  public setSimulatedError(error: boolean): void {
+    this.simulatedError = error;
+    this.notify();
+  }
+
+  public isSimulatedError(): boolean {
+    return this.simulatedError;
   }
 
   public loadScenario(scenarioId: string): void {
@@ -120,6 +151,7 @@ export class DemoEngine {
     this.energyState = this.buildInitialEnergy(this.currentScenario);
     this.activities = this.buildInitialActivities();
     this.checkInitialRecommendation(this.currentScenario);
+    this.initHistory();
     this.notify();
   }
 
@@ -174,6 +206,7 @@ export class DemoEngine {
     }
 
     this.recalculateBuildingEnergy();
+    this.recordHistorySnapshot();
     this.notify();
   }
 
@@ -197,6 +230,11 @@ export class DemoEngine {
             ? newLighting.brightness
             : undefined;
 
+      const manualOverrideUntil =
+        mode === "manual"
+          ? new Date(this.clock.now().getTime() + 30 * 60 * 1000).toISOString().substring(11, 16)
+          : null;
+
       newLighting = calculateLightingState({
         occupied: newOccupied,
         absenceMinutes: newAbsence,
@@ -205,6 +243,7 @@ export class DemoEngine {
         nominalPowerW: newLighting.nominalPowerW,
         mode,
         manualBrightness,
+        manualOverrideUntil,
       });
     }
 
@@ -243,6 +282,25 @@ export class DemoEngine {
     };
 
     this.recalculateBuildingEnergy();
+    this.recordHistorySnapshot();
+    this.notify();
+  }
+
+  public triggerUpcomingMeeting(
+    title = "Strategy Meeting",
+    scheduledAt = "15:00",
+    zoneId = "zone-meeting-a",
+    roomTemp = 26.1,
+  ): void {
+    this.recommendation = {
+      id: "rec-meeting-precondition",
+      title: `Upcoming meeting: ${title}`,
+      description: `Scheduled at ${scheduledAt} (in 12 min). Current room temperature is ${roomTemp}°C (target 23°C). Witmind recommends starting HVAC now.`,
+      actionLabel: "Precondition",
+      skipLabel: "Skip",
+      zoneId,
+      targetTemp: 23.0,
+    };
     this.notify();
   }
 
@@ -310,6 +368,69 @@ export class DemoEngine {
       moneySaved: Number((savedKwh * 0.18).toFixed(2)),
       automatedActions: this.energyState.automatedActions + 1,
     };
+  }
+
+  private initHistory(): void {
+    const primaryZone = this.buildingState.zones[0];
+    const initialDaylight = primaryZone?.lighting?.daylightLux ?? 250;
+    const initialBrightness = primaryZone?.lighting?.brightness ?? 75;
+    const initialTemp = primaryZone?.climate?.currentTemperature ?? 23.0;
+
+    this.history = [
+      {
+        time: "08:00",
+        baselineKwh: 5.0,
+        actualKwh: 3.8,
+        daylightLux: 50,
+        brightness: 100,
+        temperature: 21.8,
+      },
+      {
+        time: "10:00",
+        baselineKwh: 12.0,
+        actualKwh: 9.2,
+        daylightLux: 180,
+        brightness: 75,
+        temperature: 22.4,
+      },
+      {
+        time: "12:00",
+        baselineKwh: 18.5,
+        actualKwh: 14.1,
+        daylightLux: 450,
+        brightness: 35,
+        temperature: 23.1,
+      },
+      {
+        time: this.clock.formatTime(),
+        baselineKwh: this.energyState.energyBaselineKwh,
+        actualKwh: this.energyState.energyActualKwh,
+        daylightLux: initialDaylight,
+        brightness: initialBrightness,
+        temperature: initialTemp,
+      },
+    ];
+  }
+
+  private recordHistorySnapshot(): void {
+    const primaryZone = this.buildingState.zones[0];
+    const daylightLux = primaryZone?.lighting?.daylightLux ?? 250;
+    const brightness = primaryZone?.lighting?.brightness ?? 75;
+    const temperature = primaryZone?.climate?.currentTemperature ?? 23.0;
+
+    const snapshot: TelemetrySnapshot = {
+      time: this.clock.formatTime(),
+      baselineKwh: this.energyState.energyBaselineKwh,
+      actualKwh: this.energyState.energyActualKwh,
+      daylightLux,
+      brightness,
+      temperature,
+    };
+
+    if (this.history.length > 12) {
+      this.history.shift();
+    }
+    this.history.push(snapshot);
   }
 
   private buildInitialBuilding(scenario: DemoScenario): Building {

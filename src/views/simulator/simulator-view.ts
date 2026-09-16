@@ -12,6 +12,7 @@ export class SimulatorView extends LitElement {
   @state() private speed = demoStore.getSpeed();
   @state() private clockTime = demoStore.getClockTime();
   @state() private building = demoStore.getBuilding();
+  @state() private isErrorMode = demoStore.isSimulatedError();
   @state() private selectedZoneId = "zone-open-office";
 
   private unsubscribeStore: (() => void) | null = null;
@@ -143,6 +144,11 @@ export class SimulatorView extends LitElement {
     .btn-secondary:hover {
       background-color: var(--color-bg-surface-hover, #e2e8f0);
     }
+    .btn-danger {
+      background-color: var(--color-danger-subtle, #fef2f2);
+      color: var(--color-danger, #dc2626);
+      border: 1px solid var(--color-danger, #dc2626);
+    }
     .speed-group {
       display: flex;
       align-items: center;
@@ -197,6 +203,16 @@ export class SimulatorView extends LitElement {
       justify-content: space-between;
       min-height: var(--touch-target-min, 44px);
     }
+    .sub-section-title {
+      font-size: var(--font-size-xs, 12px);
+      font-weight: var(--font-weight-bold, 700);
+      color: var(--color-text-muted, #64748b);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: var(--spacing-2, 8px);
+      padding-top: var(--spacing-2, 8px);
+      border-top: 1px solid var(--color-border, #e2e8f0);
+    }
   `;
 
   connectedCallback() {
@@ -207,6 +223,7 @@ export class SimulatorView extends LitElement {
       this.speed = demoStore.getSpeed();
       this.clockTime = demoStore.getClockTime();
       this.building = demoStore.getBuilding();
+      this.isErrorMode = demoStore.isSimulatedError();
     });
   }
 
@@ -257,6 +274,15 @@ export class SimulatorView extends LitElement {
     demoStore.updateZoneInput(this.selectedZoneId, { daylightLux });
   }
 
+  private handleBrightnessSlider(e: Event) {
+    const slider = e.target as HTMLInputElement;
+    const brightnessOverride = Number(slider.value);
+    demoStore.updateZoneInput(this.selectedZoneId, {
+      brightnessOverride,
+      mode: "manual",
+    });
+  }
+
   private handleTempSlider(e: Event) {
     const slider = e.target as HTMLInputElement;
     const currentTemperature = Number(slider.value);
@@ -273,6 +299,21 @@ export class SimulatorView extends LitElement {
     });
   }
 
+  private handleModeToggle() {
+    const zone = this.getSelectedZone();
+    if (!zone?.lighting) return;
+    const newMode = zone.lighting.mode === "auto" ? "manual" : "auto";
+    demoStore.updateZoneInput(this.selectedZoneId, { mode: newMode });
+  }
+
+  private handleTriggerMeeting() {
+    demoStore.triggerUpcomingMeeting();
+  }
+
+  private handleToggleError() {
+    demoStore.setSimulatedError(!this.isErrorMode);
+  }
+
   render() {
     const selectedZone = this.getSelectedZone();
     const scenarioKeys = Object.keys(allScenarios);
@@ -282,13 +323,13 @@ export class SimulatorView extends LitElement {
       <div class="demo-banner">
         <div style="display: flex; align-items: center; gap: 8px;">
           <span class="demo-badge">DEMO SIMULATOR</span>
-          <span class="demo-text">Controllable Virtual Clock: <strong>${this.clockTime}</strong></span>
+          <span class="demo-text">Virtual Clock: <strong>${this.clockTime}</strong></span>
         </div>
         <span class="demo-text">Status: <strong>${this.status.toUpperCase()}</strong> (${this.speed}x Speed)</span>
       </div>
 
       <div class="grid-sections">
-        <!-- Scenarios & Playback -->
+        <!-- Scenarios & Playback Controls -->
         <div class="card">
           <div class="card-title">
             <span>Deterministic Demo Scenarios</span>
@@ -329,7 +370,7 @@ export class SimulatorView extends LitElement {
           </div>
         </div>
 
-        <!-- Manual Parameter Override -->
+        <!-- Manual Parameter Overrides & Quick Triggers -->
         <div class="card">
           <div class="card-title">
             <span>Manual Sensor Overrides</span>
@@ -362,6 +403,23 @@ export class SimulatorView extends LitElement {
                   </button>
                 </div>
 
+                <!-- Control Mode Toggle -->
+                ${
+                  selectedZone.lighting
+                    ? html`
+                      <div class="toggle-row">
+                        <span style="font-size: 14px; font-weight: 500;">Lighting Mode</span>
+                        <button
+                          class="btn ${selectedZone.lighting.mode === "auto" ? "btn-primary" : "btn-secondary"}"
+                          @click=${this.handleModeToggle}
+                        >
+                          ${selectedZone.lighting.mode === "auto" ? "⚡ AUTO (Adaptive)" : "🖐 MANUAL (Override)"}
+                        </button>
+                      </div>
+                    `
+                    : ""
+                }
+
                 <!-- Daylight Lux Slider -->
                 ${
                   selectedZone.lighting
@@ -380,6 +438,30 @@ export class SimulatorView extends LitElement {
                           class="slider"
                           @input=${this.handleDaylightSlider}
                           aria-label="Daylight Lux"
+                        />
+                      </div>
+                    `
+                    : ""
+                }
+
+                <!-- Manual Brightness Override Slider -->
+                ${
+                  selectedZone.lighting
+                    ? html`
+                      <div class="form-group">
+                        <div class="form-label">
+                          <span>Brightness Override</span>
+                          <span><strong>${selectedZone.lighting.brightness}%</strong></span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="1"
+                          .value=${selectedZone.lighting.brightness}
+                          class="slider"
+                          @input=${this.handleBrightnessSlider}
+                          aria-label="Brightness Override Percent"
                         />
                       </div>
                     `
@@ -412,6 +494,20 @@ export class SimulatorView extends LitElement {
               `
               : ""
           }
+
+          <!-- Contextual Event & Quality Gate Triggers -->
+          <div class="sub-section-title">Contextual Event Triggers & Testing</div>
+          <div class="controls-row">
+            <button class="btn btn-secondary" @click=${this.handleTriggerMeeting}>
+              📅 Trigger Meeting Alert (12m)
+            </button>
+            <button
+              class="btn ${this.isErrorMode ? "btn-primary" : "btn-danger"}"
+              @click=${this.handleToggleError}
+            >
+              ${this.isErrorMode ? "✓ Restore Normal Data" : "⚠️ Simulate API Error"}
+            </button>
+          </div>
         </div>
       </div>
     `;

@@ -166,9 +166,14 @@ export class LightingZone extends LitElement {
             <span class="type">${type} &bull; ${occupancy.occupied ? "Occupied" : `Vacant (${occupancy.absenceMinutes}m)`}</span>
           </div>
           <div class="badges">
-            <button class="badge badge-${lighting.mode}" @click=${this.toggleMode}>
+            <button class="badge badge-${lighting.mode}" @click=${this.toggleMode} aria-label="Toggle Auto/Manual mode">
               Mode: ${lighting.mode.toUpperCase()}
             </button>
+            ${
+              lighting.mode === "manual" && lighting.manualOverrideUntil
+                ? html`<span class="badge badge-manual">Override until ${lighting.manualOverrideUntil}</span>`
+                : ""
+            }
             <span class="badge ${lighting.withinTarget ? "badge-compliant" : "badge-non-compliant"}">
               ${lighting.withinTarget ? "Target Met" : "Adjusting"}
             </span>

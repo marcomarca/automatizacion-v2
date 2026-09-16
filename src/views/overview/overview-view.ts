@@ -12,6 +12,8 @@ export class OverviewView extends LitElement {
   @state() private recommendation = ClimateStore.getRecommendation();
   @state() private scenarioName = demoStore.getCurrentScenario().name;
   @state() private clockTime = demoStore.getClockTime();
+  @state() private history = demoStore.getHistory();
+  @state() private isError = demoStore.isSimulatedError();
 
   private unsubscribeStore: (() => void) | null = null;
 
@@ -83,17 +85,31 @@ export class OverviewView extends LitElement {
       color: var(--color-primary, #2563eb);
       text-align: center;
     }
+    .error-card {
+      background-color: var(--color-danger-subtle, #fef2f2);
+      border: 1px solid var(--color-danger, #dc2626);
+      border-radius: var(--radius-lg, 8px);
+      padding: var(--spacing-4, 16px);
+      color: var(--color-danger, #dc2626);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
   `;
 
   connectedCallback() {
     super.connectedCallback();
     this.unsubscribeStore = demoStore.subscribe(() => {
-      this.building = BuildingStore.getBuilding();
-      this.energy = EnergyStore.getOverview();
-      this.activities = ActivityStore.getActivities().slice(0, 3);
-      this.recommendation = ClimateStore.getRecommendation();
-      this.scenarioName = demoStore.getCurrentScenario().name;
-      this.clockTime = demoStore.getClockTime();
+      this.isError = demoStore.isSimulatedError();
+      if (!this.isError) {
+        this.building = BuildingStore.getBuilding();
+        this.energy = EnergyStore.getOverview();
+        this.activities = ActivityStore.getActivities().slice(0, 3);
+        this.recommendation = ClimateStore.getRecommendation();
+        this.scenarioName = demoStore.getCurrentScenario().name;
+        this.clockTime = demoStore.getClockTime();
+        this.history = demoStore.getHistory();
+      }
     });
   }
 
@@ -114,8 +130,9 @@ export class OverviewView extends LitElement {
   }
 
   private getEnergyChartOptions(): echarts.EChartsOption {
-    const baseline = this.energy.energyBaselineKwh;
-    const actual = this.energy.energyActualKwh;
+    const times = this.history.map((h) => h.time);
+    const baselines = this.history.map((h) => h.baselineKwh);
+    const actuals = this.history.map((h) => h.actualKwh);
 
     return {
       tooltip: {
@@ -135,7 +152,7 @@ export class OverviewView extends LitElement {
       xAxis: {
         type: "category",
         boundaryGap: false,
-        data: ["08:00", "10:00", "12:00", "14:00", "16:00", "18:00", "20:00"],
+        data: times,
       },
       yAxis: {
         type: "value",
@@ -145,15 +162,7 @@ export class OverviewView extends LitElement {
         {
           name: "Baseline Consumption",
           type: "line",
-          data: [
-            Number((baseline * 0.3).toFixed(1)),
-            Number((baseline * 0.5).toFixed(1)),
-            Number((baseline * 0.7).toFixed(1)),
-            Number((baseline * 0.85).toFixed(1)),
-            Number((baseline * 0.95).toFixed(1)),
-            Number(baseline.toFixed(1)),
-            Number((baseline * 0.6).toFixed(1)),
-          ],
+          data: baselines,
           lineStyle: { color: "#94a3b8", width: 2, type: "dashed" },
           itemStyle: { color: "#94a3b8" },
         },
@@ -161,17 +170,9 @@ export class OverviewView extends LitElement {
           name: "Witmind Optimized",
           type: "line",
           areaStyle: {
-            color: "rgba(37, 99, 235, 0.1)",
+            color: "rgba(37, 99, 235, 0.12)",
           },
-          data: [
-            Number((actual * 0.25).toFixed(1)),
-            Number((actual * 0.42).toFixed(1)),
-            Number((actual * 0.58).toFixed(1)),
-            Number((actual * 0.72).toFixed(1)),
-            Number((actual * 0.82).toFixed(1)),
-            Number(actual.toFixed(1)),
-            Number((actual * 0.45).toFixed(1)),
-          ],
+          data: actuals,
           lineStyle: { color: "#2563eb", width: 3 },
           itemStyle: { color: "#2563eb" },
         },
@@ -180,6 +181,15 @@ export class OverviewView extends LitElement {
   }
 
   render() {
+    if (this.isError) {
+      return html`
+        <div class="error-card">
+          <span>⚠️ <strong>Simulated API Connection Error</strong>: Failed to connect to telemetry backend.</span>
+          <button class="badge badge-demo" @click=${() => demoStore.setSimulatedError(false)}>Retry Connection</button>
+        </div>
+      `;
+    }
+
     return html`
       <status-card
         .statusText=${"Building Intelligence Active"}
@@ -230,7 +240,7 @@ export class OverviewView extends LitElement {
       <!-- Main Content Grid -->
       <div class="content-grid">
         <div class="left-col">
-          <!-- Energy Chart -->
+          <!-- Live Energy Comparison Chart -->
           <chart-card
             .title=${"Energy Optimization Comparison"}
             .subtitle=${"Cumulative consumption: Baseline vs Witmind autonomous control"}

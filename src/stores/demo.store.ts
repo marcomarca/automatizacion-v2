@@ -1,6 +1,6 @@
 import { MockAdapter } from "../api/adapters/mock.adapter";
-import type { SimulationInput, WitmindDataAdapter } from "../api/contracts/data-adapter";
-import { DemoEngine, type EngineStatus } from "../engine/demo-engine";
+import type { SimulationInput } from "../api/contracts/data-adapter";
+import { DemoEngine, type EngineStatus, type TelemetrySnapshot } from "../engine/demo-engine";
 import type { DemoScenario } from "../engine/scenario";
 import { normalDayScenario } from "../mocks/scenarios";
 import type { Building, OptimizationImpact, SmartActivity, Zone } from "../models";
@@ -8,7 +8,7 @@ import type { Building, OptimizationImpact, SmartActivity, Zone } from "../model
 export class DemoStore {
   private static instance: DemoStore;
   public engine: DemoEngine;
-  public adapter: WitmindDataAdapter;
+  public adapter: MockAdapter;
   private listeners: Set<() => void> = new Set();
 
   private constructor() {
@@ -56,6 +56,10 @@ export class DemoStore {
     return this.engine.getRecommendation();
   }
 
+  public getHistory(): TelemetrySnapshot[] {
+    return this.engine.getHistory();
+  }
+
   public getStatus(): EngineStatus {
     return this.engine.getStatus();
   }
@@ -73,11 +77,23 @@ export class DemoStore {
   }
 
   public getLightingZones(): Zone[] {
-    return this.engine.getBuilding().zones.filter((z) => z.lighting !== undefined);
+    try {
+      return this.engine.getBuilding().zones.filter((z) => z.lighting !== undefined);
+    } catch {
+      return [];
+    }
   }
 
   public getClimateZones(): Zone[] {
-    return this.engine.getBuilding().zones.filter((z) => z.climate !== undefined);
+    try {
+      return this.engine.getBuilding().zones.filter((z) => z.climate !== undefined);
+    } catch {
+      return [];
+    }
+  }
+
+  public isSimulatedError(): boolean {
+    return this.engine.isSimulatedError();
   }
 
   // Actions
@@ -109,12 +125,20 @@ export class DemoStore {
     this.adapter.updateSimulationInput(zoneId, input);
   }
 
+  public triggerUpcomingMeeting(): void {
+    this.engine.triggerUpcomingMeeting();
+  }
+
   public acceptRecommendation(): void {
     this.engine.acceptRecommendation();
   }
 
   public dismissRecommendation(): void {
     this.engine.dismissRecommendation();
+  }
+
+  public setSimulatedError(error: boolean): void {
+    this.engine.setSimulatedError(error);
   }
 }
 

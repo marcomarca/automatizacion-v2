@@ -8,6 +8,8 @@ import { demoStore } from "../../stores";
 export class LightingView extends LitElement {
   @state() private lightingZones = demoStore.getLightingZones();
   @state() private energy = demoStore.getEnergy();
+  @state() private history = demoStore.getHistory();
+  @state() private isError = demoStore.isSimulatedError();
 
   private unsubscribeStore: (() => void) | null = null;
 
@@ -49,6 +51,16 @@ export class LightingView extends LitElement {
       color: var(--color-text-primary, #0f172a);
       margin-bottom: var(--spacing-3, 12px);
     }
+    .error-card {
+      background-color: var(--color-danger-subtle, #fef2f2);
+      border: 1px solid var(--color-danger, #dc2626);
+      border-radius: var(--radius-lg, 8px);
+      padding: var(--spacing-4, 16px);
+      color: var(--color-danger, #dc2626);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
   `;
 
   connectedCallback() {
@@ -56,6 +68,8 @@ export class LightingView extends LitElement {
     this.unsubscribeStore = demoStore.subscribe(() => {
       this.lightingZones = demoStore.getLightingZones();
       this.energy = demoStore.getEnergy();
+      this.history = demoStore.getHistory();
+      this.isError = demoStore.isSimulatedError();
     });
   }
 
@@ -81,6 +95,10 @@ export class LightingView extends LitElement {
   }
 
   private getCorrelationChartOptions(): echarts.EChartsOption {
+    const times = this.history.map((h) => h.time);
+    const daylights = this.history.map((h) => h.daylightLux);
+    const brightnesses = this.history.map((h) => h.brightness);
+
     return {
       tooltip: {
         trigger: "axis",
@@ -98,14 +116,14 @@ export class LightingView extends LitElement {
       },
       xAxis: {
         type: "category",
-        data: ["08:00", "09:30", "11:00", "12:30", "14:00", "15:30", "17:00", "18:30"],
+        data: times,
       },
       yAxis: [
         {
           type: "value",
           name: "Lux",
           min: 0,
-          max: 800,
+          max: 1000,
         },
         {
           type: "value",
@@ -121,7 +139,7 @@ export class LightingView extends LitElement {
         {
           name: "Natural Daylight (Lux)",
           type: "line",
-          data: [50, 180, 420, 680, 520, 310, 120, 0],
+          data: daylights,
           lineStyle: { color: "#d97706", width: 2 },
           itemStyle: { color: "#d97706" },
         },
@@ -129,7 +147,7 @@ export class LightingView extends LitElement {
           name: "Regulated Brightness (%)",
           type: "line",
           yAxisIndex: 1,
-          data: [100, 75, 35, 10, 35, 55, 100, 0],
+          data: brightnesses,
           lineStyle: { color: "#2563eb", width: 3 },
           itemStyle: { color: "#2563eb" },
         },
@@ -138,6 +156,15 @@ export class LightingView extends LitElement {
   }
 
   render() {
+    if (this.isError) {
+      return html`
+        <div class="error-card">
+          <span>⚠️ <strong>Simulated API Error</strong>: Unable to load lighting telemetry.</span>
+          <button class="badge badge-demo" @click=${() => demoStore.setSimulatedError(false)}>Retry</button>
+        </div>
+      `;
+    }
+
     let totalNominalW = 0;
     let totalActualW = 0;
 
@@ -191,10 +218,10 @@ export class LightingView extends LitElement {
         ></metric-card>
       </div>
 
-      <!-- Correlation Chart -->
+      <!-- Live Correlation Chart -->
       <chart-card
         .title=${"Daylight Harvesting Correlation"}
-        .subtitle=${"As natural daylight increases, artificial fixture power drops inverse-proportionally"}
+        .subtitle=${"Real-time inverse tracking between solar lux input and artificial fixture dimming"}
         .options=${this.getCorrelationChartOptions()}
         .height=${280}
       ></chart-card>

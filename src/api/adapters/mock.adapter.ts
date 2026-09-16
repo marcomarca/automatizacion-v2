@@ -1,4 +1,4 @@
-import type { DemoEngine } from "../../engine/demo-engine";
+import type { DemoEngine, TelemetrySnapshot } from "../../engine/demo-engine";
 import type { Building, OptimizationImpact, SmartActivity, Zone } from "../../models";
 import type { SimulationInput, WitmindDataAdapter } from "../contracts/data-adapter";
 
@@ -22,13 +22,17 @@ export class MockAdapter implements WitmindDataAdapter {
   }
 
   public async getLightingZones(): Promise<Zone[]> {
-    const building = this.engine.getBuilding();
+    const building = await this.getBuilding();
     return building.zones.filter((z) => z.lighting !== undefined);
   }
 
   public async getClimateZones(): Promise<Zone[]> {
-    const building = this.engine.getBuilding();
+    const building = await this.getBuilding();
     return building.zones.filter((z) => z.climate !== undefined);
+  }
+
+  public async getTelemetryHistory(): Promise<TelemetrySnapshot[]> {
+    return this.engine.getHistory();
   }
 
   public async applyScenario(id: string): Promise<void> {
@@ -37,5 +41,13 @@ export class MockAdapter implements WitmindDataAdapter {
 
   public async updateSimulationInput(zoneId: string, input: SimulationInput): Promise<void> {
     this.engine.updateZoneInput(zoneId, input);
+  }
+
+  public setSimulatedError(error: boolean): void {
+    this.engine.setSimulatedError(error);
+  }
+
+  public isSimulatedError(): boolean {
+    return this.engine.isSimulatedError();
   }
 }

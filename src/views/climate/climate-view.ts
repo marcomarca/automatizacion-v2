@@ -8,6 +8,8 @@ import { ClimateStore, demoStore } from "../../stores";
 export class ClimateView extends LitElement {
   @state() private climateZones = ClimateStore.getClimateZones();
   @state() private recommendation = ClimateStore.getRecommendation();
+  @state() private history = demoStore.getHistory();
+  @state() private isError = demoStore.isSimulatedError();
 
   private unsubscribeStore: (() => void) | null = null;
 
@@ -49,6 +51,16 @@ export class ClimateView extends LitElement {
       color: var(--color-text-primary, #0f172a);
       margin-bottom: var(--spacing-3, 12px);
     }
+    .error-card {
+      background-color: var(--color-danger-subtle, #fef2f2);
+      border: 1px solid var(--color-danger, #dc2626);
+      border-radius: var(--radius-lg, 8px);
+      padding: var(--spacing-4, 16px);
+      color: var(--color-danger, #dc2626);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
   `;
 
   connectedCallback() {
@@ -56,6 +68,8 @@ export class ClimateView extends LitElement {
     this.unsubscribeStore = demoStore.subscribe(() => {
       this.climateZones = ClimateStore.getClimateZones();
       this.recommendation = ClimateStore.getRecommendation();
+      this.history = demoStore.getHistory();
+      this.isError = demoStore.isSimulatedError();
     });
   }
 
@@ -76,12 +90,16 @@ export class ClimateView extends LitElement {
   }
 
   private getThermalChartOptions(): echarts.EChartsOption {
+    const times = this.history.map((h) => h.time);
+    const temps = this.history.map((h) => h.temperature);
+    const targets = this.history.map(() => 23.0);
+
     return {
       tooltip: {
         trigger: "axis",
       },
       legend: {
-        data: ["Current Temperature", "Comfort Target (23°C)", "Comfort Band (22-24°C)"],
+        data: ["Current Temperature", "Comfort Target (23°C)"],
         bottom: 0,
       },
       grid: {
@@ -93,26 +111,42 @@ export class ClimateView extends LitElement {
       },
       xAxis: {
         type: "category",
-        data: ["08:00", "09:30", "11:00", "12:30", "14:00", "15:30", "17:00", "18:30"],
+        data: times,
       },
       yAxis: {
         type: "value",
         name: "°C",
-        min: 20,
+        min: 18,
         max: 28,
       },
       series: [
         {
           name: "Current Temperature",
           type: "line",
-          data: [21.8, 22.4, 23.1, 23.0, 23.4, 23.0, 22.8, 22.2],
+          data: temps,
           lineStyle: { color: "#2563eb", width: 3 },
           itemStyle: { color: "#2563eb" },
+          markArea: {
+            itemStyle: {
+              color: "rgba(22, 163, 74, 0.12)",
+            },
+            data: [
+              [
+                {
+                  name: "Comfort Band (22-24°C)",
+                  yAxis: 22,
+                },
+                {
+                  yAxis: 24,
+                },
+              ],
+            ],
+          },
         },
         {
           name: "Comfort Target (23°C)",
           type: "line",
-          data: [23.0, 23.0, 23.0, 23.0, 23.0, 23.0, 23.0, 23.0],
+          data: targets,
           lineStyle: { color: "#16a34a", width: 2, type: "dashed" },
           itemStyle: { color: "#16a34a" },
         },
@@ -121,6 +155,15 @@ export class ClimateView extends LitElement {
   }
 
   render() {
+    if (this.isError) {
+      return html`
+        <div class="error-card">
+          <span>⚠️ <strong>Simulated API Error</strong>: Unable to load telemetry data.</span>
+          <button class="badge badge-demo" @click=${() => demoStore.setSimulatedError(false)}>Retry</button>
+        </div>
+      `;
+    }
+
     const avgTemp =
       this.climateZones.length > 0
         ? (
@@ -185,10 +228,10 @@ export class ClimateView extends LitElement {
           : ""
       }
 
-      <!-- Temperature vs Comfort Band Chart -->
+      <!-- Temperature vs Comfort Band Chart with Visual markArea -->
       <chart-card
         .title=${"Thermal Comfort Monitoring"}
-        .subtitle=${"Real-time sensor temperature tracking vs 22–24°C comfort boundaries"}
+        .subtitle=${"Real-time sensor temperature tracking vs 22–24°C shaded comfort band"}
         .options=${this.getThermalChartOptions()}
         .height=${280}
       ></chart-card>
