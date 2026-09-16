@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Witmind Panel Runner</title>
+  <style>
+    :root {
+      --bg-primary: #05131e;
+      --surface-card: rgba(13, 33, 50, 0.85);
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --accent: #f26522;
+      --border: rgba(255, 255, 255, 0.1);
+      --error-bg: rgba(239, 68, 68, 0.15);
+      --error-border: rgba(239, 68, 68, 0.4);
+      --error-text: #fca5a5;
+    }
+
+    [data-theme="light"] {
+      --bg-primary: #edf3f6;
+      --surface-card: rgba(255, 255, 255, 0.9);
+      --text-primary: #0f172a;
+      --text-secondary: #64748b;
+      --border: rgba(0, 0, 0, 0.08);
+      --error-bg: rgba(239, 68, 68, 0.08);
+      --error-border: rgba(239, 68, 68, 0.25);
+      --error-text: #b91c1c;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      min-height: 100vh;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+      overflow-x: hidden;
+      overflow-y: auto;
+      transition: background-color 200ms ease;
+    }
+
+    #panel-container {
+      width: 100%;
+      min-height: 100vh;
+      position: relative;
+    }
+
+    /* Loading Spinner */
+    #loading-screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-primary);
+      z-index: 9999;
+      transition: opacity 250ms ease, visibility 250ms ease;
+    }
+
+    #loading-screen.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 3px solid rgba(242, 101, 34, 0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      margin-bottom: 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: 0.3px;
+    }
+
+    /* Error Boundary Screen */
+    #error-screen {
+      display: none;
+      position: fixed;
+      inset: 0;
+      padding: 24px;
+      background: var(--bg-primary);
+      z-index: 10000;
+      overflow-y: auto;
+    }
+
+    #error-screen.visible {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .error-card {
+      max-width: 640px;
+      width: 100%;
+      background: var(--surface-card);
+      border: 1px solid var(--error-border);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(12px);
+    }
+
+    .error-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: var(--error-bg);
+      color: var(--error-text);
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .error-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .error-message {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+
+    .error-stack {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 12px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 12px;
+      color: #ef4444;
+      overflow-x: auto;
+      max-height: 160px;
+      margin-bottom: 20px;
+      white-space: pre-wrap;
+    }
+
+    .error-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 180ms ease;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #e05312;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-primary);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.16);
+    }
+  </style>
+</head>
+<body>
+  <div id="loading-screen">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loading-msg">Cargando panel...</div>
+  </div>
+
+  <div id="error-screen">
+    <div class="error-card">
+      <span class="error-badge">⚠️ Error de Ejecución</span>
+      <h2 class="error-title" id="err-title">Fallo al iniciar el panel</h2>
+      <p class="error-message" id="err-message"></p>
+      <pre class="error-stack" id="err-stack"></pre>
+      <div class="error-actions">
+        <button class="btn btn-secondary" onclick="window.history.back()">Volver</button>
+        <button class="btn btn-primary" onclick="window.location.reload()">🔄 Reintentar (Hot-Reload)</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel-container"></div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const panelTag = urlParams.get("panel");
+      const scriptSrc = urlParams.get("src");
+      const cacheBust = urlParams.get("v") || Date.now();
+      const themeParam = urlParams.get("theme");
+
+      if (themeParam) {
+        document.documentElement.setAttribute("data-theme", themeParam);
+      }
+
+      let currentPanelEl = null;
+      let cachedHass = null;
+      let cachedConfig = null;
+      let cachedNarrow = false;
+      let cachedPanelData = null;
+
+      // Error boundary visualizer
+      function showError(title, message, stack) {
+        document.getElementById("loading-screen").classList.add("hidden");
+        document.getElementById("err-title").textContent = title;
+        document.getElementById("err-message").textContent = message;
+        document.getElementById("err-stack").textContent = stack || "Sin traza disponible";
+        document.getElementById("error-screen").classList.add("visible");
+      }
+
+      window.addEventListener("error", (e) => {
+        showError("Excepción JavaScript no controlada", e.message, e.error ? e.error.stack : "");
+      });
+
+      window.addEventListener("unhandledrejection", (e) => {
+        showError("Promesa Rechazada", e.reason ? (e.reason.message || String(e.reason)) : "Rechazo desconocido", e.reason?.stack);
+      });
+
+      // Relay Home Assistant navigation & sidebar toggle
+      document.addEventListener("hass-toggle-menu", () => {
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.dispatchEvent(new Event("hass-toggle-menu", { bubbles: true, composed: true }));
+            window.parent.postMessage({ type: "HA_TOGGLE_MENU" }, "*");
+          }
+        } catch {}
+      });
+
+      // Provide service proxy for components that call hass.callService
+      function createHassProxy(rawHass) {
+        if (!rawHass) return null;
+        return new Proxy(rawHass, {
+          get(target, prop) {
+            if (prop === "callService") {
+              return function (domain, service, serviceData) {
+                if (typeof target.callService === "function") {
+                  return target.callService(domain, service, serviceData);
+                }
+                // Fallback for cross-origin iframe
+                window.parent.postMessage({
+                  type: "HA_CALL_SERVICE",
+                  domain,
+                  service,
+                  serviceData,
+                }, "*");
+                return Promise.resolve();
+              };
+            }
+            return target[prop];
+          }
+        });
+      }
+
+      // Public API for Parent window (Direct In-Memory Access)
+      window.setHass = function (hass) {
+        cachedHass = createHassProxy(hass);
+        if (hass?.themes) {
+          const theme = hass.themes.darkMode === true ? "dark" : "light";
+          document.documentElement.setAttribute("data-theme", theme);
+        }
+        if (currentPanelEl) {
+          currentPanelEl.hass = cachedHass;
+        }
+      };
+
+      window.setConfig = function (config) {
+        cachedConfig = config;
+        if (currentPanelEl && typeof currentPanelEl.setConfig === "function") {
+          currentPanelEl.setConfig(config);
+        }
+      };
+
+      window.setNarrow = function (narrow) {
+        cachedNarrow = narrow;
+        if (currentPanelEl) {
+          currentPanelEl.narrow = narrow;
+        }
+      };
+
+      window.setPanel = function (panel) {
+        cachedPanelData = panel;
+        if (currentPanelEl) {
+          currentPanelEl.panel = panel;
+        }
+      };
+
+      // Cross-origin PostMessage listener (Fallback for remote/Vite dev mode)
+      window.addEventListener("message", (event) => {
+        const data = event.data;
+        if (!data || typeof data !== "object") return;
+
+        if (data.type === "HA_STATES" && data.hass) {
+          window.setHass(data.hass);
+        }
+        if (data.type === "HA_CONFIG" && data.config) {
+          window.setConfig(data.config);
+        }
+        if (data.type === "HA_NARROW" && typeof data.narrow === "boolean") {
+          window.setNarrow(data.narrow);
+        }
+        if (data.type === "HA_PANEL" && data.panel) {
+          window.setPanel(data.panel);
+        }
+        if (data.type === "HA_THEME" && data.theme) {
+          document.documentElement.setAttribute("data-theme", data.theme);
+        }
+      });
+
+      // Check if parent has hass ready directly
+      try {
+        if (window.parent && window.parent !== window && window.parent._hubHass) {
+          window.setHass(window.parent._hubHass);
+        }
+        if (window.parent && window.parent !== window && window.parent._hubConfig) {
+          window.setConfig(window.parent._hubConfig);
+        }
+      } catch {}
+
+      // Mount Panel Element
+      function mountElement(tagName) {
+        const container = document.getElementById("panel-container");
+        container.innerHTML = "";
+
+        const el = document.createElement(tagName);
+        el.id = "active-custom-panel";
+        el.style.width = "100%";
+        el.style.minHeight = "100vh";
+        el.style.display = "block";
+
+        if (cachedConfig && typeof el.setConfig === "function") {
+          el.setConfig(cachedConfig);
+        }
+        if (cachedPanelData) el.panel = cachedPanelData;
+        if (cachedNarrow !== undefined) el.narrow = cachedNarrow;
+        if (cachedHass) el.hass = cachedHass;
+
+        container.appendChild(el);
+        currentPanelEl = el;
+
+        document.getElementById("loading-screen").classList.add("hidden");
+
+        // Notify parent that runner is ready
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: "HA_RUNNER_MOUNTED", tag: tagName }, "*");
+          }
+        } catch {}
+      }
+
+      // Initialize Panel Script
+      async function init() {
+        if (!panelTag && !scriptSrc) {
+          showError("Parámetros Faltantes", "Se requiere especificar '?panel=<tag>' o '?src=<url>' en la URL.");
+          return;
+        }
+
+        const effectiveTag = panelTag || "custom-panel";
+
+        // If tag is already defined in window (e.g. bundled inline)
+        if (customElements.get(effectiveTag)) {
+          mountElement(effectiveTag);
+          return;
+        }
+
+        if (!scriptSrc) {
+          showError("Fuente no especificada", `El tag '<${effectiveTag}>' no está registrado y no se proporcionó el parámetro 'src'.`);
+          return;
+        }
+
+        // Dynamically load panel script with cache-busting timestamp
+        const finalUrl = scriptSrc + (scriptSrc.includes("?") ? "&" : "?") + "v=" + encodeURIComponent(cacheBust);
+        document.getElementById("loading-msg").textContent = `Cargando componente <${effectiveTag}>...`;
+
+        try {
+          const module = await import(finalUrl);
+          
+          // Wait for custom element registration
+          if (!customElements.get(effectiveTag)) {
+            // Give it 150ms for asynchronous defines
+            await new Promise((resolve) => {
+              const checkInterval = setInterval(() => {
+                if (customElements.get(effectiveTag)) {
+                  clearInterval(checkInterval);
+                  resolve();
+                }
+              }, 25);
+              setTimeout(() => {
+                clearInterval(checkInterval);
+                resolve();
+              }, 600);
+            });
+          }
+
+          if (customElements.get(effectiveTag)) {
+            mountElement(effectiveTag);
+          } else {
+            // If the module exported a default class extending HTMLElement, define it
+            if (module.default && typeof module.default === "function") {
+              customElements.define(effectiveTag, module.default);
+              mountElement(effectiveTag);
+            } else {
+              showError("Elemento no registrado", `El script '${scriptSrc}' cargó pero no registró el custom element '<${effectiveTag}>'.`);
+            }
+          }
+        } catch (err) {
+          showError("Error al importar script", `No se pudo cargar el archivo: ${scriptSrc}`, err.stack || String(err));
+        }
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>

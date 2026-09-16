@@ -1,0 +1,1787 @@
+# Configuración consolidada Witmind — paneles con menú lateral de Home Assistant.
+# Integra este contenido con tu configuration.yaml actual y evita duplicar claves.
+
+default_config:
+
+# Acceso HTTPS mediante certificado Let's Encrypt generado por Dynu DNS.
+http:
+  ssl_certificate: /ssl/fullchain.pem
+  ssl_key: /ssl/privkey.pem
+
+frontend:
+  themes: !include_dir_merge_named themes
+  extra_module_url:
+    - /local/witmind-fonts.js
+    - /local/witmind-default-panel.js?v=1.4.0
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+# Calendario laboral persistente Witmind. Los registros se guardan en .storage
+# y el panel los administra mediante WebSocket; no se incrustan en automatizaciones.
+calendario_laboral:
+
+# Subsistema Witmind de notificaciones persistentes.
+# Las reglas se guardan en .storage y se ejecutan desde el backend aunque el panel esté cerrado.
+witmind_notifications:
+  history_limit: 500
+
+# Barrera backend para el apagado crítico. La autorización dura 20 segundos,
+# es de un solo uso y no se restaura después de reiniciar Home Assistant.
+timer:
+  ventana_apagado_total:
+    name: Ventana de apagado total
+    duration: "00:00:20"
+    restore: false
+    icon: mdi:shield-lock-clock
+
+# -----------------------------------------------------------------------------
+# CLIMATIZACIÓN WITMIND — AJUSTES PERSISTENTES + ESTADO DE COMANDO DETERMINISTA
+#
+# Persisten después de reiniciar:
+#   - activación de rutina mañana/tarde
+#   - horarios
+#   - umbrales
+#   - velocidad de ventilador por perfil mañana/tarde
+#   - temperatura enviada por cada perfil automático
+#   - temperatura objetivo canónica mostrada por el panel
+#   - fase térmica diaria y fecha de validez por perfil
+#
+# NO persisten deliberadamente como estado operativo de sesión:
+#   - estado/modo comandado
+#   - autoridad AUTO/MANUAL/RECOVERY/FAULT
+#   - demanda de calor/frío
+#   - bandera de sincronización
+#
+# El sistema IR trabaja en lazo abierto. Tras cada reinicio se descarta MANUAL,
+# se entra en RECOVERY y se invalida solo la memoria operativa de sesión. La
+# demanda se reconstruye con temperatura + umbrales + fase térmica válida de hoy.
+# -----------------------------------------------------------------------------
+input_boolean:
+  climatizacion_config_inicializada:
+    name: Climatización · Configuración inicializada
+    icon: mdi:database-check-outline
+
+  climatizacion_manana_activa:
+    name: Climatización · Rutina mañana
+    icon: mdi:weather-sunset-up
+
+  climatizacion_tarde_activa:
+    name: Climatización · Rutina tarde
+    icon: mdi:weather-sunset-down
+
+  # Migración persistente de los objetivos por perfil. No lleva initial: después
+  # de la primera inicialización queda ON y no vuelve a sobrescribir lo elegido.
+  climatizacion_objetivos_config_inicializada:
+    name: Climatización · Objetivos por perfil inicializados
+    icon: mdi:thermostat-check
+
+  # Estado de la ÚLTIMA intención de potencia registrada por el controlador.
+  # Se confirma ANTES de transmitir IR: en lazo abierto la interfaz representa
+  # el estado deseado/comandado, no un supuesto feedback físico del equipo.
+  # initial:false impide restaurar un ON anterior después de reiniciar.
+  climatizacion_estado_comandado:
+    name: Climatización · Estado comandado
+    initial: false
+    icon: mdi:power
+
+  # Solo vale dentro de la sesión actual. Se pone ON después de completar
+  # una reconciliación RECOVERY válida. initial:false impide restaurar sesión.
+  climatizacion_sincronizado_sesion:
+    name: Climatización · Sincronizada esta sesión
+    initial: false
+    icon: mdi:sync-circle
+
+  # Memoria del algoritmo de histéresis. No representan estado físico.
+  climatizacion_demanda_calor:
+    name: Climatización · Demanda calor
+    initial: false
+    icon: mdi:fire
+
+  climatizacion_demanda_frio:
+    name: Climatización · Demanda frío
+    initial: false
+    icon: mdi:snowflake
+
+input_select:
+  # Último modo que nuestro controlador ordenó. UNKNOWN se usa cuando se pierde
+  # confianza lógica (por ejemplo MASTER POWER OFF o un climate unavailable).
+  climatizacion_modo_comandado:
+    name: Climatización · Modo comandado
+    options:
+      - unknown
+      - "off"
+      - auto
+      - cool
+      - heat
+      - dry
+      - fan_only
+    initial: unknown
+    icon: mdi:air-conditioner
+
+  climatizacion_ventilador_comandado:
+    name: Climatización · Ventilador comandado
+    options:
+      - auto
+      - low
+      - medium
+      - high
+    initial: auto
+    icon: mdi:fan
+
+  # Velocidad persistente que usará cada perfil automático. El modo HVAC no es
+  # configurable aquí: mañana siempre HEAT y tarde siempre COOL.
+  climatizacion_manana_ventilador:
+    name: Climatización · Mañana ventilador
+    options:
+      - auto
+      - low
+      - medium
+      - high
+    icon: mdi:fan-speed-1
+
+  climatizacion_tarde_ventilador:
+    name: Climatización · Tarde ventilador
+    options:
+      - auto
+      - low
+      - medium
+      - high
+    icon: mdi:fan-speed-2
+
+  # Memoria térmica persistente diaria. Sin initial: Home Assistant restaura el
+  # último valor; la fecha asociada decide si esa fase todavía es válida hoy.
+  climatizacion_manana_fase_termica:
+    name: Climatización · Mañana fase térmica
+    options:
+      - buscando_alta
+      - esperando_baja
+    icon: mdi:thermometer-lines
+
+  climatizacion_tarde_fase_termica:
+    name: Climatización · Tarde fase térmica
+    options:
+      - buscando_baja
+      - esperando_alta
+    icon: mdi:thermometer-lines
+
+  # Autoridad de control. initial: recovery garantiza que MANUAL no se restaure
+  # después de reiniciar Home Assistant.
+  climatizacion_control_mode:
+    name: Climatización · Autoridad de control
+    options:
+      - auto
+      - manual
+      - recovery
+      - fault
+    initial: recovery
+    icon: mdi:account-switch-outline
+
+input_text:
+  climatizacion_ultimo_evento:
+    name: Climatización · Último evento de control
+    initial: "Inicializando controlador de climatización"
+    max: 255
+    icon: mdi:message-text-clock-outline
+
+  # Fechas ISO locales (YYYY-MM-DD) de la memoria térmica. Sin initial para que
+  # sobrevivan reinicios; cualquier fecha distinta de now().date() se ignora.
+  climatizacion_manana_fase_fecha:
+    name: Climatización · Mañana fecha de fase térmica
+    max: 10
+    icon: mdi:calendar-check-outline
+
+  climatizacion_tarde_fase_fecha:
+    name: Climatización · Tarde fecha de fase térmica
+    max: 10
+    icon: mdi:calendar-check-outline
+
+input_datetime:
+  climatizacion_manana_inicio:
+    name: Climatización · Mañana inicio
+    has_date: false
+    has_time: true
+    icon: mdi:clock-start
+
+  climatizacion_manana_fin:
+    name: Climatización · Mañana fin
+    has_date: false
+    has_time: true
+    icon: mdi:clock-end
+
+  climatizacion_tarde_inicio:
+    name: Climatización · Tarde inicio
+    has_date: false
+    has_time: true
+    icon: mdi:clock-start
+
+  climatizacion_tarde_fin:
+    name: Climatización · Tarde fin
+    has_date: false
+    has_time: true
+    icon: mdi:clock-end
+
+input_number:
+  # Fuente de verdad de temperatura objetivo para el control IR a lazo abierto.
+  # El panel, los botones +/- y cada orden manual leen este valor absoluto; no se
+  # calcula ningún delta a partir del estado reportado por climate.*. No se fuerza
+  # un initial en cada arranque; si aún no hay un valor numérico, el backend usa
+  # 16 °C como fallback determinista.
+  climatizacion_temperatura_comandada:
+    name: Climatización · Temperatura objetivo comandada
+    min: 16
+    max: 30
+    step: 1
+    mode: box
+    unit_of_measurement: "°C"
+    icon: mdi:thermostat
+
+  climatizacion_manana_apagar_en:
+    name: Climatización · Mañana apagar en
+    min: 16
+    max: 30
+    step: 0.5
+    mode: box
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-chevron-up
+
+  climatizacion_manana_encender_en:
+    name: Climatización · Mañana reencender en
+    min: 16
+    max: 30
+    step: 0.5
+    mode: box
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-chevron-down
+
+  # Consigna persistente enviada en HEAT. Puede ser mayor que el umbral del
+  # sensor; nunca menor. El backend la corrige automáticamente si hiciera falta.
+  climatizacion_manana_temperatura_objetivo:
+    name: Climatización · Mañana temperatura enviada
+    min: 16
+    max: 30
+    step: 1
+    mode: box
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-plus
+
+  climatizacion_tarde_encender_en:
+    name: Climatización · Tarde encender en
+    min: 16
+    max: 30
+    step: 0.5
+    mode: box
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-chevron-up
+
+  climatizacion_tarde_apagar_en:
+    name: Climatización · Tarde apagar en
+    min: 16
+    max: 30
+    step: 0.5
+    mode: box
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-chevron-down
+
+  # Consigna persistente enviada en COOL. Puede ser menor que el umbral del
+  # sensor; nunca mayor. El backend la corrige automáticamente si hiciera falta.
+  climatizacion_tarde_temperatura_objetivo:
+    name: Climatización · Tarde temperatura enviada
+    min: 16
+    max: 30
+    step: 1
+    mode: box
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-minus
+
+template:
+  - sensor:
+      # Sensor de referencia de climatización: temperatura de Oficina general.
+      # No confundir con sensor.t_h_sensor_temperature, que corresponde a Gerencia Witronix.
+      - name: "Climatizacion Temperatura Referencia"
+        unique_id: climatizacion_temperatura_referencia
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        icon: mdi:thermometer
+        availability: >
+          {{ is_number(states('sensor.t_h_sensor_2_temperature')) }}
+        state: >
+          {{ states('sensor.t_h_sensor_2_temperature') | float(0) }}
+
+      - name: "Showroom Luminarias Encendidas"
+        unique_id: showroom_luminarias_encendidas
+        unit_of_measurement: "luces"
+        icon: mdi:lightbulb-on
+        state: >
+          {{ [
+            states('switch.interruptor_inteligente_switch_1'),
+            states('switch.interruptor_inteligente_switch_2'),
+            states('switch.interruptor_inteligente_switch_3'),
+            states('switch.interruptor_inteligente_switch_4'),
+            states('switch.interruptor_inteligente_2_switch_1'),
+            states('switch.interruptor_inteligente_2_switch_2'),
+            states('switch.interruptor_inteligente_2_switch_3'),
+            states('switch.interruptor_inteligente_2_switch_4'),
+            states('switch.smart_relay_switch_4_switch'),
+            states('switch.smart_relay_switch_3_switch')
+          ] | select('eq', 'on') | list | count }}
+
+      # Potencia lógica del showroom. No mide físicamente: suma la potencia
+      # nominal de cada circuito cuyo switch está ON. El reflector exterior queda
+      # fuera hasta conocer su potencia real; no se asigna ningún valor supuesto.
+      - name: "Showroom Potencia Estimada"
+        unique_id: showroom_potencia_estimada
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+        icon: mdi:lightning-bolt
+        availability: >
+          {{ states('switch.interruptor_inteligente_switch_1') not in ['unknown','unavailable'] and
+             states('switch.interruptor_inteligente_switch_2') not in ['unknown','unavailable'] and
+             states('switch.interruptor_inteligente_switch_3') not in ['unknown','unavailable'] and
+             states('switch.interruptor_inteligente_switch_4') not in ['unknown','unavailable'] and
+             states('switch.interruptor_inteligente_2_switch_1') not in ['unknown','unavailable'] and
+             states('switch.interruptor_inteligente_2_switch_2') not in ['unknown','unavailable'] and
+             states('switch.interruptor_inteligente_2_switch_3') not in ['unknown','unavailable'] and
+             states('switch.interruptor_inteligente_2_switch_4') not in ['unknown','unavailable'] and
+             states('switch.smart_relay_switch_4_switch') not in ['unknown','unavailable'] }}
+        state: >
+          {{
+            (100 if is_state('switch.interruptor_inteligente_switch_1', 'on') else 0) +
+            (120 if is_state('switch.interruptor_inteligente_switch_2', 'on') else 0) +
+            (180 if is_state('switch.interruptor_inteligente_switch_3', 'on') else 0) +
+            (25 if is_state('switch.interruptor_inteligente_switch_4', 'on') else 0) +
+            (96 if is_state('switch.interruptor_inteligente_2_switch_1', 'on') else 0) +
+            (10 if is_state('switch.interruptor_inteligente_2_switch_2', 'on') else 0) +
+            (432 if is_state('switch.interruptor_inteligente_2_switch_3', 'on') else 0) +
+            (144 if is_state('switch.interruptor_inteligente_2_switch_4', 'on') else 0) +
+            (288 if is_state('switch.smart_relay_switch_4_switch', 'on') else 0)
+          }}
+        attributes:
+          potencia_instalada_conocida_w: 1395
+          circuitos_incluidos: 9
+          reflector_exterior_incluido: false
+
+      - name: "Lobby Luminarias Encendidas"
+        unique_id: lobby_luminarias_encendidas
+        unit_of_measurement: "luces"
+        icon: mdi:lightbulb-on
+        state: >
+          {{ [
+            states('switch.interruptor_inteligente_3_switch_1'),
+            states('switch.interruptor_inteligente_3_switch_2'),
+            states('switch.interruptor_inteligente_3_switch_3'),
+            states('switch.interruptor_inteligente_3_switch_4')
+          ] | select('eq', 'on') | list | count }}
+
+      - name: "Oficinas Luminarias Encendidas"
+        unique_id: oficinas_luminarias_encendidas
+        unit_of_measurement: "luces"
+        icon: mdi:lightbulb-on
+        state: >
+          {{ [
+            states('switch.b2_gang_interruptor_1'),
+            states('switch.b2_gang_interruptor_2'),
+            states('switch.oficina_grande_interruptor_1'),
+            states('switch.oficina_grande_interruptor_2'),
+            states('switch.oficina_mindtec_interruptor_1'),
+            states('switch.oficina_gerencial_interruptor_1'),
+            states('switch.taller_interruptor_1')
+          ] | select('eq', 'on') | list | count }}
+
+  # Política central para automatizaciones laborales. Conserva el calendario de
+  # feriados como fuente independiente y añade el fin de jornada del sábado.
+  - binary_sensor:
+      - name: "Bloqueo Automatizaciones Laborales"
+        unique_id: bloqueo_automatizaciones_laborales
+        icon: mdi:calendar-clock
+        state: >-
+          {{ not is_state('binary_sensor.dia_no_laborable', 'off') or
+             (now().weekday() == 5 and now().hour >= 13) }}
+        attributes:
+          motivo: >-
+            {% if not is_state('binary_sensor.dia_no_laborable', 'off') %}
+              {{ state_attr('binary_sensor.dia_no_laborable', 'motivo') or 'Calendario laboral no disponible' }}
+            {% elif now().weekday() == 5 and now().hour >= 13 %}
+              Fin de jornada del sábado
+            {% else %}
+              Día laboral
+            {% endif %}
+          corte_sabado: "13:00"
+
+# Convierte la potencia lógica (W) en un contador energético acumulado (kWh).
+# method:left es adecuado porque la potencia cambia por escalones al conmutar switches.
+# max_sub_interval mantiene el acumulado actualizado incluso sin cambios de estado.
+sensor:
+  - platform: integration
+    source: sensor.showroom_potencia_estimada
+    name: "Showroom Energia Estimada"
+    unique_id: showroom_energia_estimada
+    unit_prefix: k
+    unit_time: h
+    method: left
+    round: 4
+    max_sub_interval:
+      minutes: 5
+
+panel_custom:
+  # Panel consolidado para escenas principales, rutinas diarias y apagado total.
+  # Archivo requerido: /config/www/control-general-panel.js
+  - name: control-general-panel
+    url_path: control-general
+    sidebar_title: Control general
+    sidebar_icon: mdi:shield-home-outline
+    module_url: /local/control-general-panel.js?v=1.3.1
+    require_admin: false
+    config:
+      title: Control general
+      subtitle: Escenas y rutinas operativas
+      site_label: WTX · MDTC
+      logo: /local/logo-witmind.png?v=2.0.0
+      weather: weather.forecast_casa
+
+      # Resumen de estado por área. Estas mismas entidades se reutilizan en el
+      # apagado total para cubrir todos los circuitos solicitados.
+      zones:
+        - id: showroom
+          name: Showroom
+          icon: showroom
+          entities:
+            - switch.interruptor_inteligente_switch_1
+            - switch.interruptor_inteligente_switch_2
+            - switch.interruptor_inteligente_switch_3
+            - switch.interruptor_inteligente_switch_4
+            - switch.interruptor_inteligente_2_switch_1
+            - switch.interruptor_inteligente_2_switch_2
+            - switch.interruptor_inteligente_2_switch_3
+            - switch.interruptor_inteligente_2_switch_4
+            - switch.smart_relay_switch_4_switch
+            - switch.smart_relay_switch_3_switch
+
+        - id: lobby
+          name: Lobby
+          icon: lobby
+          entities:
+            - switch.interruptor_inteligente_3_switch_1
+            - switch.interruptor_inteligente_3_switch_2
+            - switch.interruptor_inteligente_3_switch_3
+            - switch.interruptor_inteligente_3_switch_4
+        - id: oficinas
+          name: Oficinas
+          icon: office
+          entities:
+            - switch.oficina_gerencial_interruptor_1
+            - switch.oficina_mindtec_interruptor_1
+            - switch.oficina_grande_interruptor_1
+            - switch.oficina_grande_interruptor_2
+            - switch.b2_gang_interruptor_1
+            - switch.b2_gang_interruptor_2
+            - switch.taller_interruptor_1
+
+        - id: grabacion
+          name: Sala de grabación
+          icon: recording
+          entities:
+            - switch.4gang_switch_sala_grabacion_interruptor_1
+            - switch.4gang_switch_sala_grabacion_interruptor_2
+            - switch.4gang_switch_sala_grabacion_interruptor_3
+            - switch.4gang_switch_sala_grabacion_interruptor_4
+
+      # Se llama primero a la escena o script existente y después se fuerza el
+      # perfil exacto con control directo. El panel verifica los estados reales.
+      main_actions:
+        - id: showroom-reunion
+          name: Modo reunión
+          subtitle: Showroom · Ventana + Spots 2x3
+          icon: people
+          service_entities:
+            - scene.reunion
+          on_entities:
+            - switch.interruptor_inteligente_switch_1
+            - switch.interruptor_inteligente_switch_2
+          off_entities:
+            - switch.interruptor_inteligente_switch_3
+            - switch.interruptor_inteligente_switch_4
+            - switch.interruptor_inteligente_2_switch_1
+            - switch.interruptor_inteligente_2_switch_2
+            - switch.interruptor_inteligente_2_switch_3
+            - switch.interruptor_inteligente_2_switch_4
+            - switch.smart_relay_switch_4_switch
+
+        - id: showroom-presentacion
+          name: Modo presentación
+          subtitle: Showroom · Colgantes + Ventana + TV
+          icon: presentation
+          service_entities:
+            - scene.presentacion
+          on_entities:
+            - switch.interruptor_inteligente_2_switch_2
+            - switch.interruptor_inteligente_switch_1
+            - switch.interruptor_inteligente_switch_4
+          off_entities:
+            - switch.interruptor_inteligente_switch_2
+            - switch.interruptor_inteligente_switch_3
+            - switch.interruptor_inteligente_2_switch_1
+            - switch.interruptor_inteligente_2_switch_3
+            - switch.interruptor_inteligente_2_switch_4
+            - switch.smart_relay_switch_4_switch
+
+        - id: showroom-apagado
+          name: Apagar Showroom
+          subtitle: Apagado completo, incluido reflector exterior
+          icon: power
+          tone: off
+          service_entities:
+            - script.showroom_apagado_general
+          off_entities:
+            - switch.interruptor_inteligente_switch_1
+            - switch.interruptor_inteligente_switch_2
+            - switch.interruptor_inteligente_switch_3
+            - switch.interruptor_inteligente_switch_4
+            - switch.interruptor_inteligente_2_switch_1
+            - switch.interruptor_inteligente_2_switch_2
+            - switch.interruptor_inteligente_2_switch_3
+            - switch.interruptor_inteligente_2_switch_4
+            - switch.smart_relay_switch_4_switch
+            - switch.smart_relay_switch_3_switch
+
+        - id: lobby-regular
+          name: Modo regular
+          subtitle: Lobby · Solo Spots 10W
+          icon: bulb
+          on_entities:
+            - switch.interruptor_inteligente_3_switch_4
+          off_entities:
+            - switch.interruptor_inteligente_3_switch_1
+            - switch.interruptor_inteligente_3_switch_2
+            - switch.interruptor_inteligente_3_switch_3
+
+        - id: lobby-visita
+          name: Modo visita
+          subtitle: Lobby · Todos los circuitos principales
+          icon: visit
+          on_entities:
+            - switch.interruptor_inteligente_3_switch_1
+            - switch.interruptor_inteligente_3_switch_2
+            - switch.interruptor_inteligente_3_switch_3
+            - switch.interruptor_inteligente_3_switch_4
+
+        - id: lobby-apagado
+          name: Apagar Lobby
+          subtitle: Apaga los cuatro circuitos actuales del Lobby
+          icon: power
+          tone: off
+          off_entities:
+            - switch.interruptor_inteligente_3_switch_1
+            - switch.interruptor_inteligente_3_switch_2
+            - switch.interruptor_inteligente_3_switch_3
+            - switch.interruptor_inteligente_3_switch_4
+      daily_actions:
+        # Perfil determinista de apertura. Solo modifica Showroom, Lobby,
+        # Witronix LED, Multifuncional y Pasillo; las demás oficinas conservan
+        # exactamente el estado que tenían antes de ejecutar la rutina.
+        - id: inicio-dia
+          name: Inicio de día
+          subtitle: Spots 10W + Witronix LED + Multifuncional
+          icon: sunrise
+          tone: day
+          on_entities:
+            # Lobby: únicamente Spots 10W.
+            - switch.interruptor_inteligente_3_switch_4
+            # Oficinas: circuitos expresamente incluidos en la rutina.
+            - switch.oficina_gerencial_interruptor_1
+            - switch.b2_gang_interruptor_1
+          off_entities:
+            # Showroom: apagado completo, incluido el reflector exterior.
+            - switch.interruptor_inteligente_switch_1
+            - switch.interruptor_inteligente_switch_2
+            - switch.interruptor_inteligente_switch_3
+            - switch.interruptor_inteligente_switch_4
+            - switch.interruptor_inteligente_2_switch_1
+            - switch.interruptor_inteligente_2_switch_2
+            - switch.interruptor_inteligente_2_switch_3
+            - switch.interruptor_inteligente_2_switch_4
+            - switch.smart_relay_switch_4_switch
+            - switch.smart_relay_switch_3_switch
+            # Lobby: los otros tres circuitos apagados; Spots 10W encendido.
+            - switch.interruptor_inteligente_3_switch_1
+            - switch.interruptor_inteligente_3_switch_2
+            - switch.interruptor_inteligente_3_switch_3
+            # Oficinas: Pasillo apagado. Mindtec, oficina general y taller
+            # no aparecen aquí y, por tanto, no se modifican.
+            - switch.b2_gang_interruptor_2
+
+        - id: fin-dia
+          name: Fin de día
+          subtitle: Apaga completamente Showroom y Lobby
+          icon: sunset
+          tone: off
+          service_entities:
+            - script.showroom_apagado_general
+          off_entities:
+            - switch.interruptor_inteligente_switch_1
+            - switch.interruptor_inteligente_switch_2
+            - switch.interruptor_inteligente_switch_3
+            - switch.interruptor_inteligente_switch_4
+            - switch.interruptor_inteligente_2_switch_1
+            - switch.interruptor_inteligente_2_switch_2
+            - switch.interruptor_inteligente_2_switch_3
+            - switch.interruptor_inteligente_2_switch_4
+            - switch.smart_relay_switch_4_switch
+            - switch.smart_relay_switch_3_switch
+            - switch.interruptor_inteligente_3_switch_1
+            - switch.interruptor_inteligente_3_switch_2
+            - switch.interruptor_inteligente_3_switch_3
+            - switch.interruptor_inteligente_3_switch_4
+      # Acción crítica protegida por dos capas:
+      # 1) confirmación visual del panel; 2) temporizador backend de un solo uso.
+      # El script backend se ejecuta primero y el panel aplica después un apagado
+      # directo de respaldo, con reintento y verificación de los 25 circuitos.
+      danger_action:
+        id: apagado-total
+        name: Apagado total
+        subtitle: Apaga Showroom, Lobby, Oficinas y Sala de grabación
+        icon: shield
+        tone: danger
+        arm_entity: timer.ventana_apagado_total
+        arm_state_entity: timer.ventana_apagado_total
+        backend_only: false
+        service_entities:
+          - script.apagado_total_witmind
+        off_entities:
+          # Showroom
+          - switch.interruptor_inteligente_switch_1
+          - switch.interruptor_inteligente_switch_2
+          - switch.interruptor_inteligente_switch_3
+          - switch.interruptor_inteligente_switch_4
+          - switch.interruptor_inteligente_2_switch_1
+          - switch.interruptor_inteligente_2_switch_2
+          - switch.interruptor_inteligente_2_switch_3
+          - switch.interruptor_inteligente_2_switch_4
+          - switch.smart_relay_switch_4_switch
+          - switch.smart_relay_switch_3_switch
+
+          # Lobby
+          - switch.interruptor_inteligente_3_switch_1
+          - switch.interruptor_inteligente_3_switch_2
+          - switch.interruptor_inteligente_3_switch_3
+          - switch.interruptor_inteligente_3_switch_4
+
+          # Oficinas
+          - switch.oficina_gerencial_interruptor_1
+          - switch.oficina_mindtec_interruptor_1
+          - switch.oficina_grande_interruptor_1
+          - switch.oficina_grande_interruptor_2
+          - switch.b2_gang_interruptor_1
+          - switch.b2_gang_interruptor_2
+          - switch.taller_interruptor_1
+
+          # Sala de grabación
+          - switch.4gang_switch_sala_grabacion_interruptor_1
+          - switch.4gang_switch_sala_grabacion_interruptor_2
+          - switch.4gang_switch_sala_grabacion_interruptor_3
+          - switch.4gang_switch_sala_grabacion_interruptor_4
+
+  - name: sala-grabacion-panel
+    url_path: sala-grabacion
+    sidebar_title: Sala de grabación
+    sidebar_icon: mdi:record-rec
+    module_url: /local/grabacion-panel.js?v=4.2.5
+    require_admin: false
+    config:
+      title: Sala de grabación
+      subtitle: Control operativo
+      site_label: WTX · MDTC
+      logo: /local/logo-witmind.png?v=2.0.0
+      weather: weather.forecast_casa
+      total_off_scene: scene.apagado_total
+      # El panel ejecuta la escena por compatibilidad y luego fuerza/verifica
+      # directamente estos interruptores para garantizar el apagado global.
+      total_off_entities:
+        - switch.4gang_switch_sala_grabacion_interruptor_1
+        - switch.4gang_switch_sala_grabacion_interruptor_2
+        - switch.4gang_switch_sala_grabacion_interruptor_3
+        - switch.4gang_switch_sala_grabacion_interruptor_4
+      history_hours: 24
+      show_forecast: true
+      show_history: true
+      show_projected_cost: false
+      switches:
+        - entity: switch.4gang_switch_sala_grabacion_interruptor_1
+          name: Tiras LED
+          subtitle: Iluminación ambiental
+        - entity: switch.4gang_switch_sala_grabacion_interruptor_2
+          name: Paneles
+          subtitle: Luz principal
+        - entity: switch.4gang_switch_sala_grabacion_interruptor_3
+          name: Tracklight
+          subtitle: Iluminación técnica
+        - entity: switch.4gang_switch_sala_grabacion_interruptor_4
+          name: Spots
+          subtitle: Luz decorativa
+      history:
+        - entity: switch.4gang_switch_sala_grabacion_interruptor_1
+          name: Tiras LED
+        - entity: switch.4gang_switch_sala_grabacion_interruptor_2
+          name: Paneles
+        - entity: switch.4gang_switch_sala_grabacion_interruptor_3
+          name: Tracklight
+        - entity: switch.4gang_switch_sala_grabacion_interruptor_4
+          name: Spots decorativos
+
+  - name: showroom-panel
+    url_path: showroom-control
+    sidebar_title: Showroom
+    sidebar_icon: mdi:storefront-outline
+    module_url: /local/showroom-panel.js?v=1.5.1
+    require_admin: false
+    config:
+      title: Showroom
+      subtitle: Control operativo
+      site_label: WTX · MDTC
+      logo: /local/logo-witmind.png?v=2.0.0
+      weather: weather.forecast_casa
+      media_player: media_player.showroom_1
+      energy_sensor: sensor.showroom_energia_estimada
+      show_forecast: true
+
+      spots:
+        - entity: switch.interruptor_inteligente_switch_1
+          name: Spots ventana
+          subtitle: Zona ventana
+          icon: spot
+        - entity: switch.interruptor_inteligente_switch_2
+          name: Spots 2x3
+          subtitle: Muestra 2 × 3
+          icon: spot
+        - entity: switch.interruptor_inteligente_switch_3
+          name: Spots 3x3
+          subtitle: Muestra 3 × 3
+          icon: spot
+        - entity: switch.interruptor_inteligente_switch_4
+          name: Spots TV
+          subtitle: Zona audiovisual
+          icon: spot
+
+      samples:
+        - entity: switch.interruptor_inteligente_2_switch_1
+          name: Paneles 3k/6k
+          subtitle: Temperaturas de color
+          icon: panel
+        - entity: switch.interruptor_inteligente_2_switch_2
+          name: Colgantes
+          subtitle: Muestra suspendida
+          icon: pendant
+        - entity: switch.interruptor_inteligente_2_switch_3
+          name: Slims
+          subtitle: Línea decorativa
+          icon: strip
+        - entity: switch.interruptor_inteligente_2_switch_4
+          name: Downlights
+          subtitle: Iluminación empotrada
+          icon: downlight
+        - entity: switch.smart_relay_switch_4_switch
+          name: Paneles
+          subtitle: Control por relé
+          icon: screen
+
+      reflector:
+        entity: switch.smart_relay_switch_3_switch
+        name: Reflector exterior
+        subtitle: Control aislado
+        icon: reflector
+
+      # Entidades que forman parte de los modos exclusivos. El reflector queda
+      # fuera porque es un control aislado.
+      scene_control_entities:
+        - switch.interruptor_inteligente_switch_1
+        - switch.interruptor_inteligente_switch_2
+        - switch.interruptor_inteligente_switch_3
+        - switch.interruptor_inteligente_switch_4
+        - switch.interruptor_inteligente_2_switch_1
+        - switch.interruptor_inteligente_2_switch_2
+        - switch.interruptor_inteligente_2_switch_3
+        - switch.interruptor_inteligente_2_switch_4
+        - switch.smart_relay_switch_4_switch
+
+      # Escenas operativas. Se conserva su scene.* y, después de ejecutarla,
+      # el panel fuerza el perfil exclusivo y verifica los estados reales.
+      scenes:
+        - entity: scene.presentacion
+          name: Presentación
+          subtitle: Ventana + TV
+          icon: presentation
+          on_entities:
+            - switch.interruptor_inteligente_switch_1
+            - switch.interruptor_inteligente_switch_4
+
+        - entity: scene.reunion
+          name: Reunión
+          subtitle: 2x3 + Ventana
+          icon: people
+          direct_only: true
+          on_entities:
+            - switch.interruptor_inteligente_switch_1
+            - switch.interruptor_inteligente_switch_2
+
+      # Escenas de muestra deterministas. No requieren inventar entidades
+      # scene.*: cada perfil apaga todos los demás scene_control_entities,
+      # enciende solo las luminarias indicadas y comprueba el resultado real.
+      sample_scenes:
+        - id: spots
+          name: Spots
+          subtitle: Todos los spots
+          icon: spot
+          on_entities:
+            - switch.interruptor_inteligente_switch_1
+            - switch.interruptor_inteligente_switch_2
+            - switch.interruptor_inteligente_switch_3
+            - switch.interruptor_inteligente_switch_4
+
+        - id: paneles
+          name: Paneles
+          subtitle: Solo paneles
+          icon: screen
+          on_entities:
+            - switch.smart_relay_switch_4_switch
+
+        - id: slims
+          name: Slims
+          subtitle: Solo slims
+          icon: strip
+          on_entities:
+            - switch.interruptor_inteligente_2_switch_3
+
+        - id: downlights
+          name: Downlights
+          subtitle: Solo downlights
+          icon: downlight
+          on_entities:
+            - switch.interruptor_inteligente_2_switch_4
+
+        - id: paneles-3k-6k
+          name: Paneles 3k/6k
+          subtitle: Temperaturas de color
+          icon: panel
+          on_entities:
+            - switch.interruptor_inteligente_2_switch_1
+
+        - id: colgantes
+          name: Colgantes
+          subtitle: Todas las colgantes
+          icon: pendant
+          on_entities:
+            - switch.interruptor_inteligente_2_switch_2
+
+      power_on_script: script.showroom_encendido_general
+      power_off_script: script.showroom_apagado_general
+      battery_level: sensor.21051182g_battery_level
+
+  # Catálogo centralizado de las seis fichas de producto del showroom.
+  # El contenedor NO reimplementa la lógica de cada producto: carga los seis
+  # custom elements aislados y permite cambiar entre ellos mediante tabs inferiores.
+  # Archivo principal: /config/www/showroom-productos-panel.js
+  # Dependencias JS: panel-backlit, spot-20w, downlight, colgante, panel-3k6k y slim.
+  - name: showroom-productos-panel
+    url_path: showroom-productos
+    sidebar_title: Productos Showroom
+    sidebar_icon: mdi:view-carousel-outline
+    module_url: /local/showroom-productos-panel.js?v=1.0.8
+    require_admin: false
+    config:
+      default_tab: panel-backlit
+      remember_tab: true
+      preload_modules: true
+
+      # Matriz única de exclusividad compartida por las seis fichas.
+      # Cada panel aislado recibe esta misma lista sin modificar su lógica interna.
+      scene_control_entities:
+        - switch.interruptor_inteligente_switch_1
+        - switch.interruptor_inteligente_switch_2
+        - switch.interruptor_inteligente_switch_3
+        - switch.interruptor_inteligente_switch_4
+        - switch.interruptor_inteligente_2_switch_1
+        - switch.interruptor_inteligente_2_switch_2
+        - switch.interruptor_inteligente_2_switch_3
+        - switch.interruptor_inteligente_2_switch_4
+        - switch.smart_relay_switch_4_switch
+
+      tabs:
+        - id: panel-backlit
+          name: Panel
+          subtitle: 60x60 · 48W
+          element: panel-backlit-showroom
+          module_url: /local/panel-backlit-showroom.js?v=1.2.4
+          config:
+            entity: switch.smart_relay_switch_4_switch
+            office_on_image: /local/panel-backlit/oficinas-paneles-on.png
+            office_off_image: /local/panel-backlit/oficinas-paneles-off.png
+            panel_on_image: /local/panel-backlit/panel-encendido.jpg
+            panel_off_image: /local/panel-backlit/panel-apagado.png
+
+        - id: panel-3k6k
+          name: Panel 3K/6K
+          subtitle: 60x60 · 48W
+          element: panel-3k6k-showroom
+          module_url: /local/panel-3k6k-showroom.js?v=1.0.4
+          config:
+            entity: switch.interruptor_inteligente_2_switch_1
+            office_on_image: /local/paneles3k6k/paneles3k6k-oficina-on.png
+            office_off_image: /local/paneles3k6k/paneles3k6k-oficina-off.png
+            panel_on_image: /local/paneles3k6k/paneles3k6k-on.png
+            panel_off_image: /local/paneles3k6k/paneles3k6k-off.png
+
+        - id: spot-20w
+          name: Spot 20W
+          subtitle: Empotrar · 20W
+          element: spot-20w-showroom
+          module_url: /local/spot-20w-showroom.js?v=1.0.4
+          config:
+            entities:
+              - switch.interruptor_inteligente_switch_1
+              - switch.interruptor_inteligente_switch_2
+              - switch.interruptor_inteligente_switch_3
+              - switch.interruptor_inteligente_switch_4
+            office_on_image: /local/spot-20w/eg-spot20w-on.png
+            office_off_image: /local/spot-20w/eg-spot20w-off.png
+            panel_on_image: /local/spot-20w/spot20w-on.png
+            panel_off_image: /local/spot-20w/spot20w-off.png
+
+        - id: downlight
+          name: Downlight
+          subtitle: Empotrar
+          element: downlight-showroom
+          module_url: /local/downlight-showroom.js?v=1.0.4
+          config:
+            entity: switch.interruptor_inteligente_2_switch_4
+            office_on_image: /local/downlight/downlight-eg-on.png
+            office_off_image: /local/downlight/downlight-eg-off.png
+            panel_on_image: /local/downlight/downlight-on.png
+            panel_off_image: /local/downlight/downlight-off.png
+
+        - id: colgante
+          name: Colgante
+          subtitle: Suspendida · 5W
+          element: colgante-showroom
+          module_url: /local/colgante-showroom.js?v=1.0.4
+          config:
+            entity: switch.interruptor_inteligente_2_switch_2
+            office_on_image: /local/colgantes/colgantes-img-on.png
+            office_off_image: /local/colgantes/colgantes-img-off.png
+            panel_on_image: /local/colgantes/colgante-on.png
+            panel_off_image: /local/colgantes/colgante-off.png
+
+        - id: slims
+          name: Slims
+          subtitle: 600x50 mm · 48W
+          element: slim-showroom
+          module_url: /local/slim-showroom.js?v=1.0.5
+          config:
+            entity: switch.interruptor_inteligente_2_switch_3
+            office_on_image: /local/slims/slim-office-on.png?v=2
+            office_off_image: /local/slims/slim-office-off.png?v=2
+            panel_on_image: /local/slims/slim-product-on.png
+            panel_off_image: /local/slims/slim-product-off.png
+
+  # Alternativa visual independiente. Usa las mismas entidades y servicios
+  # del showroom operativo, pero registra otro Custom Element y otra ruta.
+  - name: showroom-witronix-panel
+    url_path: showroom-witronix
+    sidebar_title: Showroom Witronix
+    sidebar_icon: mdi:led-strip-variant
+    # Cache busting: incrementa la versión al reemplazar el archivo JS.
+    module_url: /local/showroom-witronix.js?v=1.3.14
+    require_admin: false
+    config:
+      title: Showroom
+      subtitle: Control operativo · Interfaz Witronix LED
+      brand: Witronix LED
+      site_label: WITRONIX · MDTC
+      # Cache busting: cambia este valor cuando reemplaces la imagen en /config/www.
+      logo: /local/logo-witronix-led.png?v=20260803-1
+      weather: weather.forecast_casa
+      media_player: media_player.showroom_1
+      light_count_sensor: sensor.showroom_luminarias_encendidas
+      history_hours: 12
+      chart_hours: 24
+      show_forecast: true
+
+      spots:
+        - entity: switch.interruptor_inteligente_switch_1
+          name: Spots ventana
+          subtitle: Zona ventana
+          icon: spot
+        - entity: switch.interruptor_inteligente_switch_2
+          name: Spots 2x3
+          subtitle: Muestra 2 × 3
+          icon: spot
+        - entity: switch.interruptor_inteligente_switch_3
+          name: Spots 3x3
+          subtitle: Muestra 3 × 3
+          icon: spot
+        - entity: switch.interruptor_inteligente_switch_4
+          name: Spots TV
+          subtitle: Zona audiovisual
+          icon: spot
+
+      samples:
+        - entity: switch.interruptor_inteligente_2_switch_1
+          name: Paneles 3k/6k
+          subtitle: Temperaturas de color
+          icon: panel
+        - entity: switch.interruptor_inteligente_2_switch_2
+          name: Colgantes
+          subtitle: Muestra suspendida
+          icon: pendant
+        - entity: switch.interruptor_inteligente_2_switch_3
+          name: Slims
+          subtitle: Línea decorativa
+          icon: strip
+        - entity: switch.interruptor_inteligente_2_switch_4
+          name: Downlights
+          subtitle: Iluminación empotrada
+          icon: downlight
+        - entity: switch.smart_relay_switch_4_switch
+          name: Paneles
+          subtitle: Control por relé
+          icon: screen
+
+      reflector:
+        entity: switch.smart_relay_switch_3_switch
+        name: Reflector exterior
+        subtitle: Control aislado
+        icon: reflector
+
+      # Entidades que forman parte de los modos exclusivos. El reflector queda
+      # fuera porque es un control aislado.
+      scene_control_entities:
+        - switch.interruptor_inteligente_switch_1
+        - switch.interruptor_inteligente_switch_2
+        - switch.interruptor_inteligente_switch_3
+        - switch.interruptor_inteligente_switch_4
+        - switch.interruptor_inteligente_2_switch_1
+        - switch.interruptor_inteligente_2_switch_2
+        - switch.interruptor_inteligente_2_switch_3
+        - switch.interruptor_inteligente_2_switch_4
+        - switch.smart_relay_switch_4_switch
+
+      # Escenas operativas. Se conserva su scene.* y, después de ejecutarla,
+      # el panel fuerza el perfil exclusivo y verifica los estados reales.
+      scenes:
+        - entity: scene.presentacion
+          name: Presentación
+          subtitle: Ventana + TV
+          icon: presentation
+          on_entities:
+            - switch.interruptor_inteligente_switch_1
+            - switch.interruptor_inteligente_switch_4
+
+        - entity: scene.reunion
+          name: Reunión
+          subtitle: 2x3 + Ventana
+          icon: people
+          direct_only: true
+          on_entities:
+            - switch.interruptor_inteligente_switch_1
+            - switch.interruptor_inteligente_switch_2
+
+      # Escenas de muestra deterministas. No requieren inventar entidades
+      # scene.*: cada perfil apaga todos los demás scene_control_entities,
+      # enciende solo las luminarias indicadas y comprueba el resultado real.
+      sample_scenes:
+        - id: spots
+          name: Spots
+          subtitle: Todos los spots
+          icon: spot
+          on_entities:
+            - switch.interruptor_inteligente_switch_1
+            - switch.interruptor_inteligente_switch_2
+            - switch.interruptor_inteligente_switch_3
+            - switch.interruptor_inteligente_switch_4
+
+        - id: paneles
+          name: Paneles
+          subtitle: Solo paneles
+          icon: screen
+          on_entities:
+            - switch.smart_relay_switch_4_switch
+
+        - id: slims
+          name: Slims
+          subtitle: Solo slims
+          icon: strip
+          on_entities:
+            - switch.interruptor_inteligente_2_switch_3
+
+        - id: downlights
+          name: Downlights
+          subtitle: Solo downlights
+          icon: downlight
+          on_entities:
+            - switch.interruptor_inteligente_2_switch_4
+
+        - id: paneles-3k-6k
+          name: Paneles 3k/6k
+          subtitle: Temperaturas de color
+          icon: panel
+          on_entities:
+            - switch.interruptor_inteligente_2_switch_1
+
+        - id: colgantes
+          name: Colgantes
+          subtitle: Todas las colgantes
+          icon: pendant
+          on_entities:
+            - switch.interruptor_inteligente_2_switch_2
+
+      power_on_script: script.showroom_encendido_general
+      power_off_script: script.showroom_apagado_general
+      battery_level: sensor.21051182g_battery_level
+
+  # Copia experimental independiente del showroom operativo.
+  # Conserva las mismas entidades, escenas y scripts para comparar la interfaz.
+  - name: showroom-experimentos-panel
+    url_path: showroom-experimentos
+    sidebar_title: Showroom Experimentos
+    sidebar_icon: mdi:flask-outline
+    module_url: /local/showroom-experimentos-panel.js?v=1.2.1
+    require_admin: false
+    config:
+      title: Showroom Experimentos
+      subtitle: Pruebas de interfaz
+      site_label: WTX · MDTC
+      logo: /local/logo-witmind.png?v=2.0.0
+      weather: weather.forecast_casa
+      media_player: media_player.showroom_1
+      light_count_sensor: sensor.showroom_luminarias_encendidas
+      history_hours: 12
+      chart_hours: 24
+      show_forecast: true
+      theme_transition_duration_ms: 1000
+
+      spots:
+        - entity: switch.interruptor_inteligente_switch_1
+          name: Spots ventana
+          subtitle: Zona ventana
+          icon: spot
+        - entity: switch.interruptor_inteligente_switch_2
+          name: Spots 2x3
+          subtitle: Muestra 2 × 3
+          icon: spot
+        - entity: switch.interruptor_inteligente_switch_3
+          name: Spots 3x3
+          subtitle: Muestra 3 × 3
+          icon: spot
+        - entity: switch.interruptor_inteligente_switch_4
+          name: Spots TV
+          subtitle: Zona audiovisual
+          icon: spot
+
+      samples:
+        - entity: switch.interruptor_inteligente_2_switch_1
+          name: Paneles 3k/6k
+          subtitle: Temperaturas de color
+          icon: panel
+        - entity: switch.interruptor_inteligente_2_switch_2
+          name: Colgantes
+          subtitle: Muestra suspendida
+          icon: pendant
+        - entity: switch.interruptor_inteligente_2_switch_3
+          name: Slims
+          subtitle: Línea decorativa
+          icon: strip
+        - entity: switch.interruptor_inteligente_2_switch_4
+          name: Downlights
+          subtitle: Iluminación empotrada
+          icon: downlight
+        - entity: switch.smart_relay_switch_4_switch
+          name: Paneles
+          subtitle: Control por relé
+          icon: screen
+
+      reflector:
+        entity: switch.smart_relay_switch_3_switch
+        name: Reflector exterior
+        subtitle: Control aislado
+        icon: reflector
+
+      # Entidades que forman parte de los modos exclusivos. El reflector queda
+      # fuera porque es un control aislado.
+      scene_control_entities:
+        - switch.interruptor_inteligente_switch_1
+        - switch.interruptor_inteligente_switch_2
+        - switch.interruptor_inteligente_switch_3
+        - switch.interruptor_inteligente_switch_4
+        - switch.interruptor_inteligente_2_switch_1
+        - switch.interruptor_inteligente_2_switch_2
+        - switch.interruptor_inteligente_2_switch_3
+        - switch.interruptor_inteligente_2_switch_4
+        - switch.smart_relay_switch_4_switch
+
+      # on_entities define el estado exacto del modo. Todo elemento de
+      # scene_control_entities que no aparezca aquí se apaga automáticamente.
+      # Esta misma matriz se usa para mostrar Activo/Inactivo aunque el usuario
+      # haya encendido las luminarias manualmente.
+      scenes:
+        - entity: scene.presentacion
+          name: Presentación
+          subtitle: Ventana + TV
+          icon: presentation
+          on_entities:
+            - switch.interruptor_inteligente_switch_1
+            - switch.interruptor_inteligente_switch_4
+
+        - entity: scene.reunion
+          name: Reunión
+          subtitle: 3x3 + Ventana
+          icon: people
+          on_entities:
+            - switch.interruptor_inteligente_switch_1
+            - switch.interruptor_inteligente_switch_3
+
+        - entity: scene.muestra_spots
+          name: Muestra Spots
+          subtitle: 2x3 + Ventana + TV
+          icon: spot
+          on_entities:
+            - switch.interruptor_inteligente_switch_1
+            - switch.interruptor_inteligente_switch_2
+            - switch.interruptor_inteligente_switch_4
+
+        - entity: scene.slims
+          name: Slims
+          subtitle: Solo slims
+          icon: strip
+          on_entities:
+            - switch.interruptor_inteligente_2_switch_3
+
+      power_on_script: script.showroom_encendido_general
+      power_off_script: script.showroom_apagado_general
+      battery_level: sensor.xiaomi_pad_admin_battery_level
+      battery_health: sensor.xiaomi_pad_admin_battery_health
+      thermostat_label: Pendiente de vincular
+
+  # Añadir como un elemento adicional dentro de panel_custom:
+  - name: showroom-energy-panel
+    url_path: showroom-consumo
+    sidebar_title: Consumo Showroom
+    sidebar_icon: mdi:lightning-bolt
+    module_url: /local/showroom-energy-panel.js?v=1.1.2
+    require_admin: false
+    config:
+      title: Consumo del showroom
+      subtitle: Historial energético estimado
+      site_label: WTX · MDTC
+      logo: /local/logo-witmind.png?v=2.0.0
+
+      # El componente inicia en modo claro y permite cambiar a modo oscuro.
+      # La preferencia se comparte con el panel operativo del showroom.
+
+      # Tarifa de referencia solicitada.
+      tariff_bob_per_kwh: 1.5
+      refresh_minutes: 5
+      default_period: day
+
+      # Horario utilizado para detectar consumo fuera de horario.
+      after_hours_start: 22
+      after_hours_end: 7
+
+      # Potencias nominales conocidas. El reflector exterior se excluye hasta
+      # contar con su potencia real. El panel calcula: Wh = watts × horas encendido.
+      circuits:
+        - entity: switch.interruptor_inteligente_switch_1
+          name: Spots ventana
+          subtitle: Zona ventana
+          watts: 100
+        - entity: switch.interruptor_inteligente_switch_2
+          name: Spots 2x3
+          subtitle: Muestra 2 × 3
+          watts: 120
+        - entity: switch.interruptor_inteligente_switch_3
+          name: Spots 3x3
+          subtitle: Muestra 3 × 3
+          watts: 180
+        - entity: switch.interruptor_inteligente_switch_4
+          name: Spots TV
+          subtitle: Zona audiovisual
+          watts: 25
+        - entity: switch.interruptor_inteligente_2_switch_1
+          name: Paneles 3k/6k
+          subtitle: Temperaturas de color
+          watts: 96
+        - entity: switch.interruptor_inteligente_2_switch_2
+          name: Colgantes
+          subtitle: Muestra suspendida
+          watts: 10
+        - entity: switch.interruptor_inteligente_2_switch_3
+          name: Slims
+          subtitle: Línea decorativa
+          watts: 432
+        - entity: switch.interruptor_inteligente_2_switch_4
+          name: Downlights
+          subtitle: Iluminación empotrada
+          watts: 144
+        - entity: switch.smart_relay_switch_4_switch
+          name: Paneles
+          subtitle: Control por relé
+          watts: 288
+        # Reflector exterior pendiente: agregarlo aquí cuando se conozca su potencia real.
+
+  - name: lobby-panel
+    url_path: lobby-control
+    sidebar_title: Lobby
+    sidebar_icon: mdi:door-open
+    module_url: /local/lobby-panel.js?v=1.3.2
+    require_admin: false
+    config:
+      title: Lobby
+      subtitle: Control operativo
+      site_label: WTX · MDTC
+      logo: /local/logo-witmind.png?v=2.0.0
+      weather: weather.forecast_casa
+      light_count_sensor: sensor.lobby_luminarias_encendidas
+      history_hours: 4
+      chart_hours: 24
+      show_forecast: true
+
+      devices:
+        - entity: switch.interruptor_inteligente_3_switch_1
+          name: Central Colgante
+          subtitle: Iluminación central
+          icon: pendant
+        - entity: switch.interruptor_inteligente_3_switch_2
+          name: Spots 5W Decorativos
+          subtitle: Iluminación decorativa
+          icon: spot
+        - entity: switch.interruptor_inteligente_3_switch_3
+          name: Tira LED
+          subtitle: Iluminación ambiental
+          icon: strip
+        - entity: switch.interruptor_inteligente_3_switch_4
+          name: Spots 10W
+          subtitle: Iluminación principal
+          icon: spot
+
+      history:
+        - entity: switch.interruptor_inteligente_3_switch_1
+          name: Central Colgante
+          subtitle: Iluminación central
+          icon: pendant
+        - entity: switch.interruptor_inteligente_3_switch_2
+          name: Spots 5W Decorativos
+          subtitle: Iluminación decorativa
+          icon: spot
+        - entity: switch.interruptor_inteligente_3_switch_3
+          name: Tira LED
+          subtitle: Iluminación ambiental
+          icon: strip
+        - entity: switch.interruptor_inteligente_3_switch_4
+          name: Spots 10W
+          subtitle: Iluminación principal
+          icon: spot
+
+      # Las escenas del Lobby son perfiles deterministas sobre sus cuatro
+      # luminarias principales. No requieren inventar nuevas entidades scene.*.
+      scene_control_entities:
+        - switch.interruptor_inteligente_3_switch_1
+        - switch.interruptor_inteligente_3_switch_2
+        - switch.interruptor_inteligente_3_switch_3
+        - switch.interruptor_inteligente_3_switch_4
+
+      scenes:
+        - id: visita
+          name: Visita
+          subtitle: Todos los circuitos
+          icon: presentation
+          on_entities:
+            - switch.interruptor_inteligente_3_switch_1
+            - switch.interruptor_inteligente_3_switch_2
+            - switch.interruptor_inteligente_3_switch_3
+            - switch.interruptor_inteligente_3_switch_4
+
+        - id: regular
+          name: Regular
+          subtitle: Solo Spots 10W
+          icon: bulb
+          on_entities:
+            - switch.interruptor_inteligente_3_switch_4
+          off_entities:
+            - switch.interruptor_inteligente_3_switch_1
+            - switch.interruptor_inteligente_3_switch_2
+            - switch.interruptor_inteligente_3_switch_3
+
+      # Encendido y apagado directos limitados a los cuatro circuitos vigentes.
+      # No se llaman escenas antiguas ni se controlan relés auxiliares.
+      power_entities:
+        - switch.interruptor_inteligente_3_switch_1
+        - switch.interruptor_inteligente_3_switch_2
+        - switch.interruptor_inteligente_3_switch_3
+        - switch.interruptor_inteligente_3_switch_4
+  # Panel minimalista de oficinas con clima actual.
+  - name: oficinas-panel
+    url_path: oficinas-control
+    sidebar_title: Oficinas
+    sidebar_icon: mdi:office-building-outline
+    module_url: /local/oficinas-panel.js?v=1.3.1
+    require_admin: false
+    config:
+      title: Oficinas
+      subtitle: Control operativo
+      site_label: WTX · MDTC
+      logo: /local/logo-witmind.png?v=2.0.0
+      weather: weather.forecast_casa
+      light_count_sensor: sensor.oficinas_luminarias_encendidas
+      history_hours: 12
+      show_history: true
+
+      areas:
+        - id: gerencia
+          name: Gerencia Witronix
+          icon: executive
+          featured: true
+          environment:
+            temperature: sensor.t_h_sensor_temperature
+            humidity: sensor.t_h_sensor_humidity
+          devices:
+            - entity: switch.oficina_gerencial_interruptor_1
+              name: Witronix LED
+              icon: bulb
+
+        - id: mindtec
+          name: Oficina Mindtec
+          icon: company
+          featured: true
+          devices:
+            - entity: switch.oficina_mindtec_interruptor_1
+              name: Mindtec
+              icon: bulb
+
+        - id: general
+          name: Oficina general
+          icon: office
+          featured: false
+          environment:
+            temperature: sensor.t_h_sensor_2_temperature
+            humidity: sensor.t_h_sensor_2_humidity
+          devices:
+            - entity: switch.oficina_grande_interruptor_1
+              name: Oficina general 1
+              icon: panel
+            - entity: switch.oficina_grande_interruptor_2
+              name: Oficina general 2
+              icon: panel
+
+        - id: pasillos
+          name: Pasillos
+          icon: corridor
+          featured: false
+          devices:
+            - entity: switch.b2_gang_interruptor_1
+              name: Multifuncional
+              icon: corridorLight
+            - entity: switch.b2_gang_interruptor_2
+              name: Pasillo
+              icon: corridorLight
+
+        - id: taller
+          name: Taller
+          icon: workshop
+          featured: false
+          devices:
+            - entity: switch.taller_interruptor_1
+              name: Taller
+              icon: bulb
+
+  # Panel de administración de alertas y notificaciones de sensores.
+  # Backend: /config/custom_components/witmind_notifications/
+  # Frontend requerido: /config/www/notifications-panel.js
+  - name: notifications-panel
+    url_path: notificaciones
+    sidebar_title: Notificaciones Witmind
+    sidebar_icon: mdi:bell-cog-outline
+    module_url: /local/notifications-panel.js?v=1.0.7
+    require_admin: true
+    config:
+      title: Notificaciones Witmind
+      subtitle: Alertas de sensores
+      site_label: WTX · MDTC
+      logo: /local/logo-witmind.png?v=2.0.0
+      preferred_sensors:
+        - entity_id: sensor.t_h_sensor_temperature
+          name: Gerencia Witronix
+        - entity_id: sensor.t_h_sensor_2_temperature
+          name: Oficina general
+
+  # Panel responsive para supervisión y control de la impresora 3D.
+  # Archivo requerido, con nombre exacto: /config/www/impresiones-panel.js
+  - name: impresiones-panel
+    url_path: impresiones
+    sidebar_title: Impresiones 3D
+    sidebar_icon: mdi:printer-3d
+    # La versión evita que el navegador reutilice el JavaScript anterior.
+    module_url: /local/impresiones-panel.js?v=1.2.1
+    require_admin: false
+    config:
+      title: Impresiones
+      brand: Witmind
+      subtitle: Control de impresión 3D
+      site_label: WTX · MDTC
+      logo: /local/logo-witmind.png?v=2.0.0
+
+      # Estado general y avance de la impresión.
+      status_sensor: sensor.f005_114b_estado_de_impresion
+      object_sensor: sensor.f005_114b_objeto_actual
+      progress_sensor: sensor.f005_114b_progreso_de_impresion
+      current_layer_sensor: sensor.f005_114b_capa_actual
+      total_layers_sensor: sensor.f005_114b_capas_totales
+      elapsed_time_sensor: sensor.f005_114b_tiempo_de_trabajo_de_impresion
+      remaining_time_sensor: sensor.f005_114b_tiempo_restante_de_impresion
+
+      # Cámara y vista previa. Captura estable limitada a 2 FPS con doble búfer.
+      camera: camera.f005_114b_camara_de_la_impresora
+      preview_image: image.f005_114b_vista_previa_de_la_impresion_actual
+      camera_fps: 2
+
+      # Telemetría de trabajo.
+      object_count_sensor: sensor.f005_114b_cantidad_de_objetos
+      material_used_sensor: sensor.f005_114b_material_usado
+      speed_sensor: sensor.f005_114b_velocidad_de_impresion
+      realtime_flow_sensor: sensor.f005_114b_flujo_en_tiempo_real
+      flow_rate_sensor: sensor.f005_114b_tasa_de_flujo
+      filament_status_sensor: sensor.f005_114b_estado_del_filamento
+
+      # Temperaturas y objetivos configurables.
+      nozzle_temperature: sensor.f005_114b_temperatura_de_la_boquilla
+      nozzle_maximum: sensor.f005_114b_temperatura_maxima_de_la_boquilla
+      nozzle_target: number.f005_114b_objetivo_de_la_boquilla
+      bed_temperature: sensor.f005_114b_temperatura_de_la_cama
+      bed_maximum: sensor.f005_114b_temperatura_maxima_de_la_cama
+      bed_target: number.f005_114b_objetivo_de_la_cama
+      chamber_temperature: sensor.f005_114b_temperatura_de_la_camara
+      history_hours: 6
+
+      # Acciones críticas. El panel valida el estado antes de habilitarlas y
+      # vuelve a validarlo inmediatamente antes de enviar el servicio.
+      pause_button: button.f005_114b_pausar_la_impresion
+      resume_button: button.f005_114b_reanudar_la_impresion
+      stop_button: button.f005_114b_detener_la_impresion
+      home_button: button.f005_114b_inicio_xy_y_luego_z
+      reconnect_button: button.f005_114b_reconectar
+
+      # Ajuste de velocidad con edición pendiente: mover la barra o pulsar +/-
+      # no envía órdenes. Solo se envía un valor al pulsar Aplicar.
+      speed_adjustment: number.f005_114b_ajuste_de_impresion
+      speed_safe_min: 50
+      speed_safe_max: 120
+      speed_confirm_delta: 10
+
+      # Zonas térmicas recomendadas. Los límites físicos definitivos continúan
+      # siendo min/max de las entidades number.* y los del firmware.
+      nozzle_safe_max: 260
+      nozzle_confirm_delta: 15
+      bed_safe_max: 110
+      bed_confirm_delta: 10
+
+      # Luz y ventiladores. Las reducciones protegidas durante una impresión
+      # activa requieren una única confirmación al aplicar el valor final.
+      printer_light: light.f005_114b_luz
+      fan_confirm_delta: 30
+      fans:
+        - entity: fan.f005_114b_ventilador_del_modelo
+          name: Ventilador del modelo
+          protect_while_printing: true
+          confirm_delta: 30
+        - entity: fan.f005_114b_ventilador_de_la_carcasa
+          name: Ventilador de carcasa
+          protect_while_printing: true
+          confirm_delta: 30
+        - entity: fan.f005_114b_ventilador_lateral
+          name: Ventilador lateral
+          protect_while_printing: true
+          confirm_delta: 30
+
+      # Posición del cabezal.
+      position_x: sensor.f005_114b_posicion_x
+      position_y: sensor.f005_114b_posicion_y
+      position_z: sensor.f005_114b_posicion_z
+
+  - name: witmind-panel
+    url_path: witmind
+    sidebar_title: Witmind
+    sidebar_icon: mdi:view-dashboard
+    module_url: /local/witmind-ui/releases/1.0.0/witmind-ui.js?v=1.0.0
+    require_admin: false
+    config:
+      default_view: sala
+      logo: /local/logo-witmind.png?v=2.0.0
+
+  # Panel independiente para administrar días no laborables.
+  # Backend: /config/custom_components/calendario_laboral/
+  # Frontend: /config/www/calendario-laboral-panel.js
+  - name: witmind-calendario-laboral-panel
+    url_path: calendario-laboral
+    sidebar_title: Días festivos
+    sidebar_icon: mdi:calendar-lock
+    module_url: /local/calendario-laboral-panel.js?v=1.5.0
+    require_admin: false
+    config:
+      title: Calendario de días festivos
+      subtitle: Define los días en los que la empresa no trabaja y pausa automatizaciones laborales.
+      site_label: WTX · MDTC
+      logo: /local/logo-witmind.png?v=2.0.0
+      entity_id: binary_sensor.dia_no_laborable
+      protected_automations:
+        - label: Taller · ciclo 10s
+          entity: automation.taller_ciclo_10s
+        - label: Climatización automática · rutinas
+          id: witmind_climatizacion_boundaries
+
+  # Panel independiente para controlar la automatización de prueba del Taller.
+  # Archivo requerido: /config/www/automatizaciones-panel.js
+  - name: automatizaciones-panel
+    url_path: automatizaciones-witmind
+    sidebar_title: Automatizaciones
+    sidebar_icon: mdi:robot-industrial
+    module_url: /local/automatizaciones-panel.js?v=1.2.0
+    require_admin: false
+    config:
+      title: Automatizaciones
+      subtitle: Control del circuito Taller
+      site_label: WTX · MDTC
+      automation_entity: automation.taller_ciclo_10s
+      target_entity: switch.taller_interruptor_1
+      target_name: Taller
+      notification_entity: notify.m2102j20sg
+      notification_title: Prueba Home Assistant
+      notification_message: Notificación enviada desde el panel de Automatizaciones Witmind.
+
+
+  # Panel unificado de climatización. La interfaz presenta un solo sistema,
+  # pero cada acción se envía simultáneamente a ambos controladores IR.
+  # Archivo requerido: /config/www/climatizacion-panel.js
+  - name: climatizacion-panel
+    url_path: climatizacion
+    sidebar_title: Climatización
+    sidebar_icon: mdi:air-conditioner
+    module_url: /local/climatizacion-panel.js?v=1.6.12
+    require_admin: false
+    config:
+      title: Climatización
+      subtitle: Oficinas Witronix
+      logo: /local/logo-witmind.png?v=2.0.0
+
+      # Entidades internas. El usuario no ve ni selecciona equipos individuales.
+      # Todas las acciones climate.* se aplican a la lista completa.
+      entities:
+        - climate.aire_acondicionado_iris
+        - climate.aire_acondicionado_midea
+
+      min_temp: 16
+      max_temp: 30
+      temp_step: 1
+      default_on_mode: cool
+
+      # Sensor virtual estable usado por panel y automatizaciones. El sensor
+      # físico de origen se cambia una sola vez en template: al inicio del archivo.
+      reference_temperature_sensor: sensor.climatizacion_temperatura_referencia
+      reference_temperature_label: Temperatura oficina
+
+      # MASTER POWER: el panel permite encender/apagar este relé de alimentación.
+      # Protección: si HVAC está comandado ON, el panel bloquea el corte hasta
+      # que IRIS + MIDEA hayan recibido primero una orden HVAC OFF.
+      master_relay: switch.smart_relay_switch_interruptor
+
+      # Contador acumulado de energía del mismo relé. Las gráficas usan Recorder;
+      # "Consumo del mes" usa la resta absoluta entre el primer valor registrado
+      # desde el día 1 y el valor vivo actual del contador.
+      energy_sensor: sensor.smart_relay_switch_energia_total
+
+      # Sensor físico de temperatura de las oficinas. Solo se usa como historial
+      # superpuesto en la gráfica Día; no altera la automatización climática.
+      temperature_history_sensor: sensor.t_h_sensor_2_temperature
+
+      # Helpers persistentes editables desde el propio panel.
+      automation_config_initialized: input_boolean.climatizacion_config_inicializada
+      morning_enabled: input_boolean.climatizacion_manana_activa
+      afternoon_enabled: input_boolean.climatizacion_tarde_activa
+      morning_start: input_datetime.climatizacion_manana_inicio
+      morning_end: input_datetime.climatizacion_manana_fin
+      afternoon_start: input_datetime.climatizacion_tarde_inicio
+      afternoon_end: input_datetime.climatizacion_tarde_fin
+      morning_off_temp: input_number.climatizacion_manana_apagar_en
+      morning_on_temp: input_number.climatizacion_manana_encender_en
+      morning_target_temp: input_number.climatizacion_manana_temperatura_objetivo
+      afternoon_on_temp: input_number.climatizacion_tarde_encender_en
+      afternoon_off_temp: input_number.climatizacion_tarde_apagar_en
+      afternoon_target_temp: input_number.climatizacion_tarde_temperatura_objetivo
+      morning_fan: input_select.climatizacion_manana_ventilador
+      afternoon_fan: input_select.climatizacion_tarde_ventilador
+
+      # Estado lógico de la última orden enviada. No se toma climate.* como
+      # feedback físico porque el control IR es de lazo abierto.
+      commanded_power_helper: input_boolean.climatizacion_estado_comandado
+      commanded_mode_helper: input_select.climatizacion_modo_comandado
+      commanded_temperature_helper: input_number.climatizacion_temperatura_comandada
+      commanded_fan_helper: input_select.climatizacion_ventilador_comandado
+      session_sync_helper: input_boolean.climatizacion_sincronizado_sesion
+      control_mode_helper: input_select.climatizacion_control_mode
+      heat_demand_helper: input_boolean.climatizacion_demanda_calor
+      cool_demand_helper: input_boolean.climatizacion_demanda_frio
+      last_event_helper: input_text.climatizacion_ultimo_evento
+
+  # ---------------------------------------------------------------------------
+  # PANELES 3D
+  # ---------------------------------------------------------------------------
+
+  # Paneles 3D personalizados — arquitectura sandboxed aislada.
+  # Archivo requerido: /config/www/witmind-3d-panel.js
+  - name: showroom-3d-panel
+    url_path: showroom-3d
+    sidebar_title: Showroom 3D
+    sidebar_icon: mdi:cube-scan
+    module_url: /local/witmind-3d-panel.js?v=3.4.0.1788809519458
+    require_admin: false
+    config:
+      title: Showroom 3D
+      room: showroom
+      # dev_url: http://192.168.20.44:5173  # Opcional: Ahora también puedes alternar a Dev desde la interfaz
+
+  - name: lobby-3d-panel
+    url_path: lobby-3d
+    sidebar_title: Lobby 3D
+    sidebar_icon: mdi:video-3d
+    module_url: /local/witmind-3d-panel.js?v=3.4.0.1788809519458
+    require_admin: false
+    config:
+      title: Lobby 3D
+      room: lobby
+      # dev_url: http://192.168.20.44:5173  # Opcional: Ahora también puedes alternar a Dev desde la interfaz
+
+  # Witmind Lab - Panel Experimental en Paralelo (Hot-Reload)
+  - name: witmind-lab-panel
+    url_path: witmind-lab
+    sidebar_title: Witmind Lab (Dev)
+    sidebar_icon: mdi:flask-outline
+    module_url: /local/witmind-panel-hub.js?v=2.1.0
+    require_admin: false
+
+  # Showroom V2 — Panel Hot-Reload Resiliente (Sin reinicios posteriores de HA)
+  - name: showroom-v2-panel
+    url_path: showroom-v2
+    sidebar_title: Showroom V2
+    sidebar_icon: mdi:storefront-outline
+    module_url: /local/showroom-v2-panel.js?v=2.0.0
+    require_admin: false
+    config:
+      title: Showroom V2
+      subtitle: Control operativo Hot-Reload
+
+# Tuya Smart IR AC (HACS: EnzoD86/tuya-smart-ir-ac)
+# Sustituye únicamente los dos placeholders siguientes por las credenciales
+# reales de tu proyecto en Tuya Developer Platform.
+tuya_smart_ir_ac:
+  access_id: !secret tuya_access_id
+  access_secret: !secret tuya_access_secret
+  country: "US"

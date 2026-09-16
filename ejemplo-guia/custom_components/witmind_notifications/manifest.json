@@ -1,0 +1,10 @@
+{
+  "domain": "witmind_notifications",
+  "name": "Witmind Notifications",
+  "version": "1.0.7",
+  "documentation": "https://www.home-assistant.io/",
+  "codeowners": [],
+  "iot_class": "local_push",
+  "integration_type": "helper",
+  "requirements": []
+}

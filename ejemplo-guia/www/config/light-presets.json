@@ -1,0 +1,363 @@
+{
+  "lobby": {
+    "environment": {
+      "mode": "custom",
+      "sliderValue": 30,
+      "ambientIntensity": 0.305,
+      "hemisphereIntensity": 0.443,
+      "directionalIntensity": 0.439,
+      "ambientColor": "#5b626e",
+      "skyColor": "#575d6a",
+      "groundColor": "#394254",
+      "sunColor": "#b4bfcd"
+    },
+    "camera": {
+      "position": [
+        -8.79,
+        10.38,
+        -2.06
+      ],
+      "target": [
+        -4.67,
+        2.16,
+        -3.33
+      ]
+    },
+    "graphics": {
+      "pointLightShadows": false,
+      "directionalShadows": false,
+      "contactShadows": true,
+      "shadowMapSize": 256,
+      "showFpsBadge": true,
+      "dpr": 1,
+      "freezeStaticMatrices": true,
+      "ecoModeDemand": true,
+      "cappedLightRadius": true,
+      "prewarmLightShaders": true,
+      "optimizedShaders": true,
+      "spotLightCone": true,
+      "adaptiveDpr": true
+    },
+    "lobby-1": {
+      "position": [
+        -5.2,
+        2.2,
+        -3.3
+      ],
+      "target": [
+        -5.2,
+        0,
+        -3.3
+      ],
+      "angle": 1.571,
+      "penumbra": 0.65,
+      "color": "#d6e6ff",
+      "intensity": 9.9,
+      "distance": 13,
+      "decay": 2,
+      "enabled": true
+    },
+    "lobby-2": {
+      "position": [
+        -2.3,
+        2.2,
+        -4.85
+      ],
+      "target": [
+        -2.3,
+        0,
+        -4.85
+      ],
+      "angle": 0.785,
+      "penumbra": 0.65,
+      "color": "#ffb877",
+      "intensity": 3,
+      "distance": 7,
+      "decay": 2,
+      "enabled": true
+    },
+    "lobby-3": {
+      "position": [
+        -4.2,
+        2.2,
+        -4.15
+      ],
+      "target": [
+        -4.2,
+        0,
+        -4.15
+      ],
+      "angle": 1.571,
+      "penumbra": 0.65,
+      "color": "#fff4e6",
+      "intensity": 7.3,
+      "distance": 10,
+      "decay": 2,
+      "enabled": true
+    },
+    "lobby-4": {
+      "position": [
+        -6.25,
+        2.2,
+        -4.45
+      ],
+      "target": [
+        -6.25,
+        0,
+        -4.45
+      ],
+      "angle": 1.571,
+      "penumbra": 0.65,
+      "color": "#d6e6ff",
+      "intensity": 9.9,
+      "distance": 15.5,
+      "decay": 2,
+      "enabled": true
+    }
+  },
+  "showroom": {
+    "environment": {
+      "mode": "custom",
+      "sliderValue": 30,
+      "ambientIntensity": 0.305,
+      "hemisphereIntensity": 0.443,
+      "directionalIntensity": 0.439,
+      "ambientColor": "#5b626e",
+      "skyColor": "#575d6a",
+      "groundColor": "#394254",
+      "sunColor": "#b4bfcd"
+    },
+    "camera": {
+      "position": [
+        2.89,
+        13.14,
+        -2.95
+      ],
+      "target": [
+        2.89,
+        3.96,
+        -2.95
+      ]
+    },
+    "graphics": {
+      "pointLightShadows": false,
+      "directionalShadows": true,
+      "contactShadows": true,
+      "shadowMapSize": 256,
+      "showFpsBadge": true,
+      "dpr": 1.5,
+      "freezeStaticMatrices": true,
+      "ecoModeDemand": false,
+      "cappedLightRadius": true,
+      "prewarmLightShaders": true,
+      "optimizedShaders": true,
+      "spotLightCone": true,
+      "adaptiveDpr": true
+    },
+    "spots-1": {
+      "position": [
+        3.1,
+        2.2,
+        -1.2
+      ],
+      "target": [
+        3.1,
+        0,
+        -1.2
+      ],
+      "angle": 0.785,
+      "penumbra": 0.65,
+      "color": "#fff4e6",
+      "intensity": 3.5,
+      "distance": 8,
+      "decay": 2,
+      "enabled": true
+    },
+    "spots-2": {
+      "position": [
+        4.6,
+        2.5,
+        -2.2
+      ],
+      "target": [
+        4.6,
+        0,
+        -2.2
+      ],
+      "angle": 0.785,
+      "penumbra": 0.65,
+      "color": "#fff4e6",
+      "intensity": 3.5,
+      "distance": 8,
+      "decay": 2,
+      "enabled": true
+    },
+    "spots-3": {
+      "position": [
+        4.6,
+        2.5,
+        -1.2
+      ],
+      "target": [
+        4.6,
+        0,
+        -1.2
+      ],
+      "angle": 0.785,
+      "penumbra": 0.65,
+      "color": "#fff4e6",
+      "intensity": 3.2,
+      "distance": 7.5,
+      "decay": 2,
+      "enabled": true
+    },
+    "spots-4": {
+      "position": [
+        2.8,
+        2.5,
+        -3.9
+      ],
+      "target": [
+        2.8,
+        0,
+        -3.9
+      ],
+      "angle": 0.785,
+      "penumbra": 0.65,
+      "color": "#fff4e6",
+      "intensity": 3.2,
+      "distance": 7.5,
+      "decay": 2,
+      "enabled": true
+    },
+    "decoracion-1": {
+      "position": [
+        1.3,
+        2.5,
+        -2.15
+      ],
+      "target": [
+        1.3,
+        0,
+        -2.15
+      ],
+      "angle": 1.571,
+      "penumbra": 1,
+      "color": "#ffb877",
+      "intensity": 5.1,
+      "distance": 6,
+      "decay": 2,
+      "enabled": true
+    },
+    "decoracion-2": {
+      "position": [
+        1.3,
+        2.5,
+        -2.95
+      ],
+      "target": [
+        1.3,
+        0,
+        -2.95
+      ],
+      "angle": 0.785,
+      "penumbra": 0.65,
+      "color": "#ffb877",
+      "intensity": 2.5,
+      "distance": 5,
+      "decay": 2,
+      "enabled": true
+    },
+    "decoracion-3": {
+      "position": [
+        1.3,
+        2.5,
+        -1.15
+      ],
+      "target": [
+        1.3,
+        0,
+        -1.15
+      ],
+      "angle": 0.785,
+      "penumbra": 0.65,
+      "color": "#fff4e6",
+      "intensity": 2.5,
+      "distance": 5,
+      "decay": 2,
+      "enabled": true
+    },
+    "decoracion-4": {
+      "position": [
+        4.6,
+        2.5,
+        -3.1
+      ],
+      "target": [
+        4.6,
+        0,
+        -3.1
+      ],
+      "angle": 0.785,
+      "penumbra": 0.65,
+      "color": "#d6e6ff",
+      "intensity": 2.5,
+      "distance": 5,
+      "decay": 2,
+      "enabled": true
+    },
+    "paneles": {
+      "position": [
+        3.15,
+        2.5,
+        -2.15
+      ],
+      "target": [
+        3.15,
+        0,
+        -2.15
+      ],
+      "angle": 1.571,
+      "penumbra": 1,
+      "color": "#fff4e6",
+      "intensity": 9.9,
+      "distance": 5,
+      "decay": 2,
+      "enabled": true
+    },
+    "reflector-exterior": {
+      "position": [
+        -1.3,
+        2.5,
+        -1.85
+      ],
+      "target": [
+        -1.3,
+        0,
+        -1.85
+      ],
+      "angle": 0.95,
+      "penumbra": 0.6,
+      "color": "#d6e6ff",
+      "intensity": 4.5,
+      "distance": 12,
+      "decay": 2,
+      "enabled": true
+    }
+  },
+  "graphics": {
+    "pointLightShadows": false,
+    "directionalShadows": false,
+    "contactShadows": true,
+    "shadowMapSize": 256,
+    "showFpsBadge": true,
+    "dpr": 1,
+    "freezeStaticMatrices": true,
+    "ecoModeDemand": true,
+    "cappedLightRadius": true,
+    "prewarmLightShaders": true,
+    "optimizedShaders": true,
+    "spotLightCone": true,
+    "adaptiveDpr": true
+  }
+}

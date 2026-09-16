@@ -1,0 +1,2866 @@
+// Witmind Showroom Panel v1.5.1 — consumo estimado estable, sin rerenders por hass irrelevante.
+const DEFAULT_SHOWROOM_CONFIG = Object.freeze({
+  title: "Showroom",
+  subtitle: "Control operativo",
+  siteLabel: "WTX · MDTC",
+  logo: "/local/logo-witmind.png?v=2.0.0",
+  weather: "weather.forecast_casa",
+  mediaPlayer: "media_player.showroom_1",
+  lightCountSensor: "sensor.showroom_luminarias_encendidas",
+  energySensor: "sensor.showroom_energia_estimada",
+  batteryLevel: "sensor.21051182g_battery_level",
+  historyHours: 12,
+  chartHours: 24,
+  showForecast: true,
+  spots: [
+    { entity: "switch.interruptor_inteligente_switch_1", name: "Spots ventana", subtitle: "Zona ventana", icon: "spot" },
+    { entity: "switch.interruptor_inteligente_switch_2", name: "Spots 2x3", subtitle: "Muestra 2 × 3", icon: "spot" },
+    { entity: "switch.interruptor_inteligente_switch_3", name: "Spots 3x3", subtitle: "Muestra 3 × 3", icon: "spot" },
+    { entity: "switch.interruptor_inteligente_switch_4", name: "Spots TV", subtitle: "Zona audiovisual", icon: "spot" },
+  ],
+  samples: [
+    { entity: "switch.interruptor_inteligente_2_switch_1", name: "Paneles 3k/6k", subtitle: "Temperaturas de color", icon: "panel" },
+    { entity: "switch.interruptor_inteligente_2_switch_2", name: "Colgantes", subtitle: "Muestra suspendida", icon: "pendant" },
+    { entity: "switch.interruptor_inteligente_2_switch_3", name: "Slims", subtitle: "Línea decorativa", icon: "strip" },
+    { entity: "switch.interruptor_inteligente_2_switch_4", name: "Downlights", subtitle: "Iluminación empotrada", icon: "downlight" },
+    { entity: "switch.smart_relay_switch_4_switch", name: "Paneles", subtitle: "Control por relé", icon: "screen" },
+  ],
+  reflector: {
+    entity: "switch.smart_relay_switch_3_switch",
+    name: "Reflector exterior",
+    subtitle: "Control aislado",
+    icon: "reflector",
+  },
+  scenes: [
+    {
+      entity: "scene.presentacion",
+      name: "Presentación",
+      subtitle: "Ventana + TV",
+      icon: "presentation",
+      onEntities: [
+        "switch.interruptor_inteligente_switch_1",
+        "switch.interruptor_inteligente_switch_4",
+      ],
+    },
+    {
+      entity: "scene.reunion",
+      name: "Reunión",
+      subtitle: "2x3 + Ventana",
+      icon: "people",
+      directOnly: true,
+      onEntities: [
+        "switch.interruptor_inteligente_switch_1",
+        "switch.interruptor_inteligente_switch_2",
+      ],
+    },
+  ],
+  sampleScenes: [
+    {
+      id: "spots",
+      name: "Spots",
+      subtitle: "Todos los spots",
+      icon: "spot",
+      onEntities: [
+        "switch.interruptor_inteligente_switch_1",
+        "switch.interruptor_inteligente_switch_2",
+        "switch.interruptor_inteligente_switch_3",
+        "switch.interruptor_inteligente_switch_4",
+      ],
+    },
+    {
+      id: "paneles",
+      name: "Paneles",
+      subtitle: "Solo paneles",
+      icon: "screen",
+      onEntities: ["switch.smart_relay_switch_4_switch"],
+    },
+    {
+      id: "slims",
+      name: "Slims",
+      subtitle: "Solo slims",
+      icon: "strip",
+      onEntities: ["switch.interruptor_inteligente_2_switch_3"],
+    },
+    {
+      id: "downlights",
+      name: "Downlights",
+      subtitle: "Solo downlights",
+      icon: "downlight",
+      onEntities: ["switch.interruptor_inteligente_2_switch_4"],
+    },
+    {
+      id: "paneles-3k-6k",
+      name: "Paneles 3k/6k",
+      subtitle: "Temperaturas de color",
+      icon: "panel",
+      onEntities: ["switch.interruptor_inteligente_2_switch_1"],
+    },
+    {
+      id: "colgantes",
+      name: "Colgantes",
+      subtitle: "Todas las colgantes",
+      icon: "pendant",
+      onEntities: ["switch.interruptor_inteligente_2_switch_2"],
+    },
+  ],
+  powerOnScript: "script.showroom_encendido_general",
+  powerOffScript: "script.showroom_apagado_general",
+});
+
+const CONDITION_LABELS = {
+  "clear-night": "Noche despejada",
+  cloudy: "Nublado",
+  exceptional: "Condición excepcional",
+  fog: "Niebla",
+  hail: "Granizo",
+  lightning: "Tormenta eléctrica",
+  "lightning-rainy": "Tormenta y lluvia",
+  partlycloudy: "Parcialmente nublado",
+  pouring: "Lluvia intensa",
+  rainy: "Lluvia",
+  snowy: "Nieve",
+  "snowy-rainy": "Aguanieve",
+  sunny: "Soleado",
+  windy: "Ventoso",
+  "windy-variant": "Viento y nubes",
+};
+
+const CONDITION_SYMBOLS = {
+  "clear-night": "☾",
+  cloudy: "☁",
+  exceptional: "!",
+  fog: "≋",
+  hail: "◆",
+  lightning: "ϟ",
+  "lightning-rainy": "ϟ",
+  partlycloudy: "◒",
+  pouring: "☂",
+  rainy: "☂",
+  snowy: "❄",
+  "snowy-rainy": "❄",
+  sunny: "☀",
+  windy: "≈",
+  "windy-variant": "≈",
+};
+
+const ICON_PATHS = {
+  spot: '<path d="M4 4h7l3.6 3.6-5 5L4 7V4Zm10.5 8.5 1.4 1.4-4.2 4.2-1.4-1.4 4.2-4.2Zm3-3 1.4 1.4-1.8 1.8-1.4-1.4 1.8-1.8ZM8 14l1.4 1.4-1.8 1.8-1.4-1.4L8 14Zm10 2 1 2.2 2.2 1-2.2 1-1 2.2-1-2.2-2.2-1 2.2-1L18 16Z"/>',
+  panel: '<path d="M4 4h16v16H4V4Zm2 2v12h12V6H6Zm2 2h8v2H8V8Zm0 4h8v4H8v-4Z"/>',
+  pendant: '<path d="M11 2h2v6.1a6 6 0 0 1 5 5.9v1H6v-1a6 6 0 0 1 5-5.9V2Zm-3 15h8v2H8v-2Zm3 3h2v2h-2v-2Z"/>',
+  strip: '<path d="M4 5h16v4H4V5Zm2 2h2V6H6v1Zm4 0h2V6h-2v1Zm4 0h2V6h-2v1Zm4 0h1V6h-1v1ZM4 11h16v8H4v-8Zm2 2v4h12v-4H6Z"/>',
+  downlight: '<path d="M5 4h14l-2 8H7L5 4Zm4 10h6v2H9v-2Zm-2 4h10v2H7v-2Z"/>',
+  screen: '<path d="M3 4h18v14H3V4Zm2 2v10h14V6H5Zm5 13h4v2h-4v-2Zm1-11h2v2h2v2h-2v2h-2v-2H9v-2h2V8Z"/>',
+  reflector: '<path d="M4 5h10l3 3v6l-3 3H4V5Zm2 2v8h7l2-2V9l-2-2H6Zm12 2h2v6h-2V9Zm3-2h2v10h-2V7Z"/>',
+  presentation: '<path d="M3 3h18v13H3V3Zm2 2v9h14V5H5Zm6 11h2v2.2l3.6 2.1-1 1.7-3.6-2.1L8.4 22l-1-1.7 3.6-2.1V16Z"/>',
+  people: '<path d="M8 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm8-1a3 3 0 1 1 0-6 3 3 0 0 1 0 6ZM2 21v-3a6 6 0 0 1 12 0v3H2Zm13 0v-3c0-1.5-.4-2.9-1.2-4.1A5 5 0 0 1 22 18v3h-7Z"/>',
+  power: '<path d="M11 2h2v10h-2V2Zm5.7 3.9 1.4-1.4A9 9 0 1 1 5.9 4.5l1.4 1.4A7 7 0 1 0 16.7 5.9Z"/>',
+  bulb: '<path d="M9 21h6v-2H9v2Zm3-19a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2Zm2 11.5V15h-4v-1.5l-.5-.3A5 5 0 1 1 14.5 13l-.5.5Z"/>',
+  music: '<path d="M9 3v12.3A3.5 3.5 0 1 0 11 18V8h8V4L9 3Zm-2 18a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"/>',
+  play: '<path d="M8 5v14l11-7L8 5Z"/>',
+  pause: '<path d="M7 5h4v14H7V5Zm6 0h4v14h-4V5Z"/>',
+  previous: '<path d="M6 5h2v14H6V5Zm12 1v12l-9-6 9-6Z"/>',
+  next: '<path d="M16 5h2v14h-2V5ZM6 6l9 6-9 6V6Z"/>',
+  volumeDown: '<path d="M4 9v6h4l5 4V5L8 9H4Zm11 1.5a3 3 0 0 1 0 3V16a5 5 0 0 0 0-8v2.5Z"/>',
+  volumeUp: '<path d="M3 9v6h4l5 4V5L7 9H3Zm11 1.5a3 3 0 0 1 0 3V16a5 5 0 0 0 0-8v2.5Zm0-6v2.1a7 7 0 0 1 0 10.8v2.1a9 9 0 0 0 0-15Z"/>',
+  refresh: '<path d="M17.7 6.3A8 8 0 1 0 20 12h-2a6 6 0 1 1-1.8-4.3L13 11h8V3l-3.3 3.3Z"/>',
+  battery: '<path d="M3 6h16v12H3V6Zm2 2v8h12V8H5Zm15 2h2v4h-2v-4Z"/>',
+  health: '<path d="M12 21C7 17.5 3 14.1 3 9.6A4.6 4.6 0 0 1 11 6.5l1 1 1-1a4.6 4.6 0 0 1 8 3.1c0 4.5-4 7.9-9 11.4Zm-4-9h2l1-2.2 2 4.4L14 12h2"/>',
+  thermometer: '<path d="M10 3a3 3 0 0 1 6 0v9.3a5 5 0 1 1-6 0V3Zm3 1a1 1 0 0 0-1 1v8.4l-.5.3a3 3 0 1 0 3 0l-.5-.3V5a1 1 0 0 0-1-1Z"/>',
+  chart: '<path d="M4 19h17v2H2V3h2v16Zm2-3 4-5 3 3 5-7 1.6 1.2-6.4 9-3-3L7.6 17.2 6 16Z"/>',
+  status: '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1 14-4-4 1.4-1.4L11 13.2l5.6-5.6L18 9l-7 7Z"/>',
+  energy: '<path d="M13.2 2.5 6.8 13h4.9l-.9 8.5L17.2 11h-4.9l.9-8.5Z"/>',
+};
+
+const MENU_ICON = `
+  <svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M3 6.5h18M3 12h18M3 17.5h18"></path>
+  </svg>
+`;
+
+const THEME_ICON = `
+  <svg class="theme-icon" viewBox="0 0 24 24" aria-hidden="true">
+    <g class="theme-icon-sun">
+      <circle cx="12" cy="12" r="3.75"></circle>
+      <path d="M12 1.75v2.5M12 19.75v2.5M1.75 12h2.5M19.75 12h2.5M4.75 4.75l1.77 1.77M17.48 17.48l1.77 1.77M19.25 4.75l-1.77 1.77M6.52 17.48l-1.77 1.77"></path>
+    </g>
+    <path class="theme-icon-moon" d="M20.2 15.4A8.1 8.1 0 0 1 8.6 3.8a8.65 8.65 0 1 0 11.6 11.6Z"></path>
+  </svg>
+`;
+
+class ShowroomPanel extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+
+    this._hass = null;
+    this._panel = null;
+    this._narrow = false;
+    this._started = false;
+    this._renderQueued = false;
+    this._forecast = [];
+    this._history = [];
+    this._historyError = "";
+    this._liveStates = new Map();
+    this._pendingSwitches = new Map();
+    this._switchErrors = new Map();
+    this._switchTimers = new Map();
+    this._pendingAction = "";
+    this._confirmAction = "";
+    this._toast = null;
+    this._toastTimer = null;
+    this._clockTimer = null;
+    this._historyTimer = null;
+    this._unsubscribeStates = null;
+    this._unsubscribeForecast = null;
+    this._forecastEntity = "";
+    this._energyRange = "day";
+    this._energyDayOffset = 0;
+    this._energyData = [];
+    this._energyLoading = false;
+    this._energyError = null;
+    this._energyMonthTotal = null;
+    this._energyRequestId = 0;
+    this._energyRefreshTimer = null;
+    this._energyLastLoadedAt = 0;
+    this._energyAutoFollow = true;
+    this._energyScrollLeft = null;
+    this._themeStorageKey = "witmind-showroom-panel-theme";
+    this._theme = this._loadTheme();
+
+    // No agregar atributos al host en el constructor. Home Assistant valida
+    // que customElements.createElement() termine sin atributos propios.
+    this.shadowRoot.addEventListener("click", (event) => this._handleClick(event));
+    this.shadowRoot.addEventListener("scroll", (event) => this._handleEnergyScroll(event), true);
+  }
+
+  set hass(value) {
+    const previous = this._hass;
+    const config = this._config();
+    const relevantChanged = this._relevantHassChanged(previous, value);
+    const energyChanged =
+      !previous || previous.states?.[config.energySensor] !== value?.states?.[config.energySensor];
+
+    this._hass = value;
+
+    // Home Assistant sustituye el objeto hass con mucha frecuencia. Igual que en
+    // Calendario Laboral, solo sincronizamos/reconstruimos el Shadow DOM cuando
+    // cambia una entidad que este panel realmente utiliza.
+    if (relevantChanged) this._syncStatesFromHass();
+
+    if (!this._started) {
+      this._started = true;
+      this._start();
+    } else if (energyChanged) {
+      this._scheduleEnergyRefresh();
+    }
+
+    if (relevantChanged) this._requestRender();
+  }
+
+  get hass() {
+    return this._hass;
+  }
+
+  set panel(value) {
+    const previousWeather = this._config().weather;
+    this._panel = value;
+    const nextWeather = this._config().weather;
+
+    if (this._started && previousWeather !== nextWeather) {
+      this._resetForecastSubscription();
+      this._subscribeWeather();
+    }
+
+    if (this._hass) {
+      this._syncStatesFromHass();
+      this._loadEnergyStatistics();
+      this._requestRender();
+    }
+  }
+
+  get panel() {
+    return this._panel;
+  }
+
+  set narrow(value) {
+    this._narrow = Boolean(value);
+    this.toggleAttribute("narrow", this._narrow);
+  }
+
+  get narrow() {
+    return this._narrow;
+  }
+
+  connectedCallback() {
+    if (this._hass) {
+      this._requestRender();
+      this._scheduleEnergyRefresh(true);
+    }
+  }
+
+  disconnectedCallback() {
+    clearInterval(this._clockTimer);
+    clearInterval(this._historyTimer);
+    clearTimeout(this._toastTimer);
+    clearTimeout(this._energyRefreshTimer);
+    this._energyRequestId += 1;
+    for (const timer of this._switchTimers.values()) clearTimeout(timer);
+    this._switchTimers.clear();
+    this._resetForecastSubscription();
+    if (this._unsubscribeStates) {
+      this._unsubscribeStates();
+      this._unsubscribeStates = null;
+    }
+    this._started = false;
+  }
+
+  _requestRender() {
+    if (this._renderQueued || !this._hass || !this.shadowRoot) return;
+    this._renderQueued = true;
+    requestAnimationFrame(() => {
+      this._renderQueued = false;
+      this.render();
+    });
+  }
+
+  _handleClick(event) {
+    const target = event.target.closest("[data-action]");
+    if (!target || !this._hass) return;
+
+    const action = target.dataset.action;
+    if (action === "toggle-menu") {
+      this._toggleHomeAssistantMenu();
+      return;
+    }
+    if (action === "toggle-theme") {
+      this._toggleTheme();
+      return;
+    }
+    if (action === "toggle-switch") {
+      this._toggleSwitch(target.dataset.entity);
+      return;
+    }
+    if (action === "run-scene") {
+      this._runScene(target.dataset.sceneKey || target.dataset.entity, target.dataset.label);
+      return;
+    }
+    if (action === "open-power-on") {
+      if (!this._pendingAction) {
+        this._confirmAction = "on";
+        this._requestRender();
+      }
+      return;
+    }
+    if (action === "open-power-off") {
+      if (!this._pendingAction) {
+        this._confirmAction = "off";
+        this._requestRender();
+      }
+      return;
+    }
+    if (action === "cancel-power-confirm") {
+      const inside = event.target.closest("[data-dialog-card]");
+      if (target.classList.contains("dialog-backdrop") && inside) return;
+      if (!this._pendingAction) {
+        this._confirmAction = "";
+        this._requestRender();
+      }
+      return;
+    }
+    if (action === "confirm-power") {
+      this._confirmGeneralPower();
+      return;
+    }
+    if (action === "clear-scene") {
+      this._clearScene();
+      return;
+    }
+    if (action === "media") {
+      this._mediaAction(target.dataset.service);
+      return;
+    }
+    if (action === "energy-range") {
+      this._setEnergyRange(target.dataset.range);
+      return;
+    }
+    if (action === "energy-day-prev") {
+      this._shiftEnergyDay(-1);
+      return;
+    }
+    if (action === "energy-day-next") {
+      this._shiftEnergyDay(1);
+      return;
+    }
+    if (action === "energy-day-today") {
+      this._resetEnergyDay();
+      return;
+    }
+    if (action === "refresh-energy") {
+      this._energyLastLoadedAt = 0;
+      this._loadEnergyStatistics();
+    }
+  }
+
+  _toggleHomeAssistantMenu() {
+    // Evento oficial empleado por Home Assistant para abrir o contraer
+    // la barra lateral desde un panel personalizado dentro de Shadow DOM.
+    this.dispatchEvent(
+      new Event("hass-toggle-menu", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  _loadTheme() {
+    try {
+      const stored = localStorage.getItem(this._themeStorageKey);
+      return stored === "dark" ? "dark" : "light";
+    } catch (_error) {
+      return "light";
+    }
+  }
+
+  _saveTheme() {
+    try {
+      localStorage.setItem(this._themeStorageKey, this._theme);
+    } catch (error) {
+      console.warn("No se pudo guardar el tema del showroom:", error);
+    }
+  }
+
+  _toggleTheme() {
+    this._theme = this._theme === "dark" ? "light" : "dark";
+    this.setAttribute("data-theme", this._theme);
+    this._saveTheme();
+    this._requestRender();
+  }
+
+  _config() {
+    const raw = this._panel?.config || {};
+    const normalizeEntityIds = (items) => {
+      if (!Array.isArray(items)) return [];
+      return [...new Set(items.filter(Boolean).map((item) => String(item)))];
+    };
+    const normalizeDevices = (items, fallback) => {
+      const source = Array.isArray(items) && items.length ? items : fallback;
+      return source
+        .filter((item) => item?.entity)
+        .map((item, index) => ({
+          entity: String(item.entity),
+          name: item.name || `Dispositivo ${index + 1}`,
+          subtitle: item.subtitle || "Iluminación",
+          icon: item.icon || "bulb",
+        }));
+    };
+
+    const spots = normalizeDevices(raw.spots, DEFAULT_SHOWROOM_CONFIG.spots);
+    const samples = normalizeDevices(raw.samples || raw.muestras, DEFAULT_SHOWROOM_CONFIG.samples);
+    const defaultControlEntities = [...spots, ...samples].map((item) => item.entity);
+    const configuredControlEntities = normalizeEntityIds(
+      raw.scene_control_entities || raw.sceneControlEntities,
+    );
+    const sceneControlEntities = configuredControlEntities.length
+      ? configuredControlEntities
+      : defaultControlEntities;
+
+    const normalizeScenes = (items, fallback, groupName) => {
+      const source = Array.isArray(items) && items.length ? items : fallback;
+      return source
+        .filter((item) => item?.entity || item?.id || item?.key)
+        .map((item, index) => {
+          const requestedEntity = item.entity ? String(item.entity) : "";
+          const requestedId = String(item.id || item.key || requestedEntity || `${groupName}-${index + 1}`);
+          const defaultScene = fallback.find((candidate) => {
+            const candidateEntity = candidate.entity ? String(candidate.entity) : "";
+            const candidateId = String(candidate.id || candidate.key || candidateEntity || "");
+            return (requestedEntity && candidateEntity === requestedEntity) || candidateId === requestedId;
+          });
+          const entity = requestedEntity || (defaultScene?.entity ? String(defaultScene.entity) : "");
+          const id = String(item.id || item.key || defaultScene?.id || entity || `${groupName}-${index + 1}`);
+          const key = entity || `${groupName}:${id}`;
+          const hasExplicitOn =
+            Array.isArray(item.on_entities) || Array.isArray(item.onEntities);
+          const hasExplicitOff =
+            Array.isArray(item.off_entities) || Array.isArray(item.offEntities);
+          const onEntities = normalizeEntityIds(
+            hasExplicitOn
+              ? (item.on_entities || item.onEntities)
+              : defaultScene?.onEntities,
+          );
+          const explicitOff = normalizeEntityIds(
+            hasExplicitOff ? (item.off_entities || item.offEntities) : [],
+          );
+          const offEntities = hasExplicitOff
+            ? explicitOff.filter((entityId) => !onEntities.includes(entityId))
+            : sceneControlEntities.filter((entityId) => !onEntities.includes(entityId));
+
+          return {
+            key,
+            id,
+            entity,
+            name: item.name || defaultScene?.name || `Escena ${index + 1}`,
+            subtitle: item.subtitle || defaultScene?.subtitle || "Escena del showroom",
+            icon: item.icon || defaultScene?.icon || "presentation",
+            directOnly:
+              item.direct_only ?? item.directOnly ?? defaultScene?.directOnly ?? false,
+            onEntities,
+            offEntities,
+          };
+        });
+    };
+
+    const reflectorRaw = raw.reflector || DEFAULT_SHOWROOM_CONFIG.reflector;
+    const historyHours = Number(raw.history_hours ?? raw.historyHours);
+    const chartHours = Number(raw.chart_hours ?? raw.chartHours);
+
+    return {
+      title: raw.title || DEFAULT_SHOWROOM_CONFIG.title,
+      subtitle: raw.subtitle || DEFAULT_SHOWROOM_CONFIG.subtitle,
+      siteLabel: raw.site_label || raw.siteLabel || DEFAULT_SHOWROOM_CONFIG.siteLabel,
+      logo: raw.logo || DEFAULT_SHOWROOM_CONFIG.logo,
+      weather: raw.weather || DEFAULT_SHOWROOM_CONFIG.weather,
+      mediaPlayer: raw.media_player || raw.mediaPlayer || DEFAULT_SHOWROOM_CONFIG.mediaPlayer,
+      lightCountSensor:
+        raw.light_count_sensor || raw.lightCountSensor || DEFAULT_SHOWROOM_CONFIG.lightCountSensor,
+      energySensor:
+        raw.energy_sensor || raw.energySensor || DEFAULT_SHOWROOM_CONFIG.energySensor,
+      batteryLevel:
+        raw.battery_level || raw.batteryLevel || DEFAULT_SHOWROOM_CONFIG.batteryLevel,
+      powerOnScript:
+        raw.power_on_script || raw.powerOnScript || DEFAULT_SHOWROOM_CONFIG.powerOnScript,
+      powerOffScript:
+        raw.power_off_script || raw.powerOffScript || DEFAULT_SHOWROOM_CONFIG.powerOffScript,
+      historyHours:
+        Number.isFinite(historyHours) && historyHours > 0
+          ? Math.min(24, historyHours)
+          : DEFAULT_SHOWROOM_CONFIG.historyHours,
+      chartHours:
+        Number.isFinite(chartHours) && chartHours > 0
+          ? Math.min(72, chartHours)
+          : DEFAULT_SHOWROOM_CONFIG.chartHours,
+      showForecast:
+        raw.show_forecast ?? raw.showForecast ?? DEFAULT_SHOWROOM_CONFIG.showForecast,
+      spots,
+      samples,
+      sceneControlEntities,
+      reflector: reflectorRaw?.entity
+        ? {
+            entity: String(reflectorRaw.entity),
+            name: reflectorRaw.name || DEFAULT_SHOWROOM_CONFIG.reflector.name,
+            subtitle: reflectorRaw.subtitle || DEFAULT_SHOWROOM_CONFIG.reflector.subtitle,
+            icon: reflectorRaw.icon || DEFAULT_SHOWROOM_CONFIG.reflector.icon,
+          }
+        : null,
+      scenes: normalizeScenes(raw.scenes, DEFAULT_SHOWROOM_CONFIG.scenes, "scene"),
+      sampleScenes: normalizeScenes(
+        raw.sample_scenes || raw.sampleScenes,
+        DEFAULT_SHOWROOM_CONFIG.sampleScenes,
+        "sample",
+      ),
+    };
+  }
+
+  _allDevices() {
+    const config = this._config();
+    return [
+      ...config.spots,
+      ...config.samples,
+      ...(config.reflector ? [config.reflector] : []),
+    ];
+  }
+
+  _allScenes(config = this._config()) {
+    return [...config.scenes, ...config.sampleScenes];
+  }
+
+  _trackedEntities() {
+    const config = this._config();
+    return new Set([
+      ...this._allDevices().map((item) => item.entity),
+      ...config.sceneControlEntities,
+      ...this._allScenes(config).flatMap((item) => [
+        item.entity,
+        ...item.onEntities,
+        ...item.offEntities,
+      ]),
+      config.weather,
+      config.mediaPlayer,
+      config.lightCountSensor,
+      config.energySensor,
+      config.batteryLevel,
+      config.powerOnScript,
+      config.powerOffScript,
+    ].filter(Boolean));
+  }
+
+  _relevantHassChanged(previous, current) {
+    if (!previous || !current) return true;
+    for (const entityId of this._trackedEntities()) {
+      // Home Assistant conserva la referencia del State Object cuando esa entidad
+      // no cambió. Esto evita renderizar por actualizaciones ajenas al showroom.
+      if (previous.states?.[entityId] !== current.states?.[entityId]) return true;
+    }
+    return false;
+  }
+
+  async _start() {
+    this._clockTimer = setInterval(() => this._updateClock(), 30_000);
+
+    await Promise.allSettled([
+      this._fetchCurrentStates(),
+      this._subscribeStateChanges(),
+      this._subscribeWeather(),
+      this._loadEnergyStatistics(),
+    ]);
+  }
+
+  _syncStatesFromHass() {
+    if (!this._hass?.states) return;
+    for (const entityId of this._trackedEntities()) {
+      const stateObject = this._hass.states[entityId];
+      if (stateObject) this._applyLiveState(entityId, stateObject);
+    }
+  }
+
+  _applyLiveState(entityId, stateObject) {
+    if (!stateObject) {
+      this._liveStates.delete(entityId);
+      return;
+    }
+    this._liveStates.set(entityId, stateObject);
+
+    const pending = this._pendingSwitches.get(entityId);
+    if (pending && stateObject.state === pending.desired) {
+      this._pendingSwitches.delete(entityId);
+      this._switchErrors.delete(entityId);
+      const timer = this._switchTimers.get(entityId);
+      if (timer) clearTimeout(timer);
+      this._switchTimers.delete(entityId);
+    }
+  }
+
+  async _fetchCurrentStates() {
+    if (!this._hass?.callWS) return;
+    try {
+      const states = await this._hass.callWS({ type: "get_states" });
+      const tracked = this._trackedEntities();
+      for (const stateObject of states || []) {
+        if (tracked.has(stateObject.entity_id)) {
+          this._applyLiveState(stateObject.entity_id, stateObject);
+        }
+      }
+      this._requestRender();
+    } catch (error) {
+      console.error("No se pudieron sincronizar los estados del showroom:", error);
+    }
+  }
+
+  async _subscribeStateChanges() {
+    if (!this._hass?.connection || this._unsubscribeStates) return;
+    try {
+      this._unsubscribeStates = await this._hass.connection.subscribeEvents(
+        (event) => {
+          const entityId = event?.data?.entity_id;
+          if (!entityId || !this._trackedEntities().has(entityId)) return;
+          this._applyLiveState(entityId, event.data.new_state);
+          if (entityId === this._config().energySensor) this._scheduleEnergyRefresh();
+          this._requestRender();
+        },
+        "state_changed",
+      );
+    } catch (error) {
+      console.error("No se pudo suscribir a state_changed:", error);
+    }
+  }
+
+  _resetForecastSubscription() {
+    if (this._unsubscribeForecast) {
+      this._unsubscribeForecast();
+      this._unsubscribeForecast = null;
+    }
+    this._forecastEntity = "";
+  }
+
+  async _subscribeWeather() {
+    const config = this._config();
+    if (!this._hass?.connection || !config.weather) return;
+    if (this._unsubscribeForecast && this._forecastEntity === config.weather) return;
+    this._resetForecastSubscription();
+
+    try {
+      this._forecastEntity = config.weather;
+      this._unsubscribeForecast = await this._hass.connection.subscribeMessage(
+        (event) => {
+          this._forecast = Array.isArray(event?.forecast) ? event.forecast : [];
+          this._requestRender();
+        },
+        {
+          type: "weather/subscribe_forecast",
+          forecast_type: "daily",
+          entity_id: config.weather,
+        },
+      );
+    } catch (error) {
+      this._forecastEntity = "";
+      console.error("No se pudo cargar el pronóstico:", error);
+    }
+  }
+
+  _energyRefreshInterval() {
+    if (this._energyRange === "day") return 30000;
+    if (this._energyRange === "month") return 120000;
+    return 300000;
+  }
+
+  _scheduleEnergyRefresh(immediate = false) {
+    if (!this._hass || !this.isConnected) return;
+    clearTimeout(this._energyRefreshTimer);
+    if (this._energyRange === "day" && this._energyDayOffset !== 0) return;
+    const interval = this._energyRefreshInterval();
+    const elapsed = this._energyLastLoadedAt ? Date.now() - this._energyLastLoadedAt : 0;
+    const delay = immediate ? 0 : this._energyLastLoadedAt ? Math.max(1000, interval - elapsed) : interval;
+    this._energyRefreshTimer = setTimeout(() => this._loadEnergyStatistics(), delay);
+  }
+
+  _energyRangeDefinition(range = this._energyRange) {
+    const now = new Date();
+    let start;
+    let end = now;
+    let period;
+    let title;
+    let intervalLabel;
+    let isToday = false;
+
+    if (range === "year") {
+      start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+      period = "month";
+      title = `Año ${now.getFullYear()}`;
+      intervalLabel = "mes";
+    } else if (range === "month") {
+      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      period = "day";
+      title = now.toLocaleDateString("es-BO", { month: "long", year: "numeric" });
+      intervalLabel = "día";
+    } else {
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      start = new Date(
+        todayStart.getFullYear(),
+        todayStart.getMonth(),
+        todayStart.getDate() + Math.min(0, Number(this._energyDayOffset) || 0),
+        0, 0, 0, 0,
+      );
+      isToday = start.getTime() === todayStart.getTime();
+      end = isToday
+        ? now
+        : new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1, 0, 0, 0, 0);
+      period = "hour";
+      title = start.toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" });
+      intervalLabel = "hora";
+    }
+
+    return { start, end, period, title, intervalLabel, isToday };
+  }
+
+  _energyValueToKWh(value, unit) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return null;
+    const normalized = String(unit || "kWh").trim().toLowerCase().replaceAll(" ", "");
+    if (normalized === "kwh") return numeric;
+    if (normalized === "wh") return numeric / 1000;
+    if (normalized === "mwh") return numeric * 1000;
+    return null;
+  }
+
+  _deriveEnergyStateDeltas(rows, rangeStart, rangeEnd) {
+    const startMs = Number(rangeStart instanceof Date ? rangeStart.getTime() : rangeStart);
+    const endMs = Number(rangeEnd instanceof Date ? rangeEnd.getTime() : rangeEnd);
+    const sorted = rows
+      .filter((row) => Number.isFinite(Number(row.start)) && Number.isFinite(Number(row.state)))
+      .sort((a, b) => Number(a.start) - Number(b.start));
+
+    const derived = [];
+    let previousState = null;
+    for (const row of sorted) {
+      const timestamp = Number(row.start);
+      const state = Number(row.state);
+      if (timestamp < startMs) {
+        previousState = state;
+        continue;
+      }
+      if (timestamp >= endMs) break;
+      let change = 0;
+      if (Number.isFinite(previousState)) {
+        const delta = state - previousState;
+        change = delta >= 0 ? delta : Math.max(0, state);
+      }
+      derived.push({ ...row, change });
+      previousState = state;
+    }
+    return derived;
+  }
+
+  _aggregateEnergyDayRows(rows, definition, energyEntity) {
+    const dayStart = new Date(definition.start);
+    const dayEnd = new Date(definition.end);
+    const lastHourStart = definition.isToday
+      ? new Date(dayEnd.getFullYear(), dayEnd.getMonth(), dayEnd.getDate(), dayEnd.getHours(), 0, 0, 0)
+      : new Date(dayStart.getFullYear(), dayStart.getMonth(), dayStart.getDate(), 23, 0, 0, 0);
+    const buckets = new Map();
+
+    for (let cursor = new Date(dayStart); cursor <= lastHourStart; cursor.setHours(cursor.getHours() + 1)) {
+      const start = cursor.getTime();
+      buckets.set(start, {
+        start,
+        end: new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate(), cursor.getHours() + 1, 0, 0, 0).getTime(),
+        change: 0,
+        samples: 0,
+        partial: definition.isToday && start === lastHourStart.getTime(),
+        live: false,
+      });
+    }
+
+    let latestStateRow = null;
+    for (const row of rows) {
+      const rowDate = new Date(Number(row.start));
+      if (!Number.isFinite(rowDate.getTime())) continue;
+      const bucketStart = new Date(rowDate.getFullYear(), rowDate.getMonth(), rowDate.getDate(), rowDate.getHours(), 0, 0, 0).getTime();
+      const bucket = buckets.get(bucketStart);
+      if (!bucket) continue;
+      bucket.change += Math.max(0, Number(row.change) || 0);
+      bucket.samples += 1;
+      if (Number.isFinite(row.state) && (!latestStateRow || Number(row.end || row.start) > Number(latestStateRow.end || latestStateRow.start))) {
+        latestStateRow = row;
+      }
+    }
+
+    if (definition.isToday) {
+      const currentEnergy = this._energyValueToKWh(
+        energyEntity?.state,
+        energyEntity?.attributes?.unit_of_measurement,
+      );
+      const latestState = latestStateRow?.state;
+      const latestTimestamp = Number(latestStateRow?.end || latestStateRow?.start);
+      const currentBucket = buckets.get(lastHourStart.getTime());
+      if (
+        currentBucket && Number.isFinite(currentEnergy) && Number.isFinite(latestState) &&
+        Number.isFinite(latestTimestamp) && latestTimestamp >= lastHourStart.getTime() &&
+        dayEnd.getTime() - latestTimestamp >= 0 && dayEnd.getTime() - latestTimestamp <= 15 * 60 * 1000
+      ) {
+        const liveDelta = currentEnergy - latestState;
+        if (Number.isFinite(liveDelta) && liveDelta >= 0) {
+          currentBucket.change += liveDelta;
+          currentBucket.live = liveDelta > 0;
+        }
+      }
+    }
+    // No mostramos como “0 kWh medidos” horas anteriores a la existencia del
+    // sensor. Un bucket solo es válido si Recorder entregó muestras para esa hora
+    // (o si existe un delta vivo verificable para la hora abierta).
+    return [...buckets.values()].filter((bucket) => bucket.samples > 0 || bucket.live);
+  }
+
+  _calculateCurrentMonthEnergy(rows, now, energyEntity) {
+    const current = new Date(now);
+    const monthStart = new Date(current.getFullYear(), current.getMonth(), 1, 0, 0, 0, 0).getTime();
+    const normalized = rows
+      .filter((row) => Number.isFinite(Number(row.start)) && Number(row.start) >= monthStart)
+      .sort((a, b) => Number(a.start) - Number(b.start));
+    let total = normalized.reduce((sum, row) => sum + Math.max(0, Number(row.change) || 0), 0);
+    let latestStateRow = null;
+    for (const row of normalized) {
+      if (!Number.isFinite(Number(row.state))) continue;
+      if (!latestStateRow || Number(row.end || row.start) > Number(latestStateRow.end || latestStateRow.start)) latestStateRow = row;
+    }
+    const currentEnergy = this._energyValueToKWh(energyEntity?.state, energyEntity?.attributes?.unit_of_measurement);
+    const latestState = Number(latestStateRow?.state);
+    const latestTimestamp = Number(latestStateRow?.end || latestStateRow?.start);
+    if (
+      Number.isFinite(currentEnergy) && Number.isFinite(latestState) && Number.isFinite(latestTimestamp) &&
+      latestTimestamp >= monthStart && latestTimestamp <= current.getTime() &&
+      current.getTime() - latestTimestamp <= 2 * 60 * 60 * 1000
+    ) {
+      const liveDelta = currentEnergy - latestState;
+      if (Number.isFinite(liveDelta) && liveDelta >= 0) total += liveDelta;
+    }
+    return normalized.length || Number.isFinite(latestState) ? total : null;
+  }
+
+  _aggregateEnergyCalendarRows(rows, definition, energyEntity, range) {
+    if (!["month", "year"].includes(range)) return [];
+    const buckets = new Map();
+    let latestStateRow = null;
+    for (const row of rows) {
+      const timestamp = Number(row.start);
+      if (!Number.isFinite(timestamp)) continue;
+      const date = new Date(timestamp);
+      const bucketStart = range === "month"
+        ? new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0).getTime()
+        : new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0).getTime();
+      const bucket = buckets.get(bucketStart) || { start: bucketStart, change: 0, samples: 0, partial: false, live: false };
+      bucket.change += Math.max(0, Number(row.change) || 0);
+      bucket.samples += 1;
+      buckets.set(bucketStart, bucket);
+      if (Number.isFinite(Number(row.state)) && (!latestStateRow || timestamp > Number(latestStateRow.start))) latestStateRow = row;
+    }
+
+    const currentEnergy = this._energyValueToKWh(energyEntity?.state, energyEntity?.attributes?.unit_of_measurement);
+    const latestState = Number(latestStateRow?.state);
+    const latestTimestamp = Number(latestStateRow?.start);
+    const rangeEnd = new Date(definition.end);
+    if (
+      Number.isFinite(currentEnergy) && Number.isFinite(latestState) && Number.isFinite(latestTimestamp) &&
+      latestTimestamp <= rangeEnd.getTime() && rangeEnd.getTime() - latestTimestamp <= 2 * 60 * 60 * 1000
+    ) {
+      const liveDelta = currentEnergy - latestState;
+      if (Number.isFinite(liveDelta) && liveDelta >= 0) {
+        const bucketStart = range === "month"
+          ? new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate(), 0, 0, 0, 0).getTime()
+          : new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), 1, 0, 0, 0, 0).getTime();
+        const bucket = buckets.get(bucketStart) || { start: bucketStart, change: 0, samples: 0, partial: false, live: false };
+        bucket.change += liveDelta;
+        bucket.live = liveDelta > 0;
+        buckets.set(bucketStart, bucket);
+      }
+    }
+    return [...buckets.values()].sort((a, b) => Number(a.start) - Number(b.start));
+  }
+
+  _energyViewSignature() {
+    return JSON.stringify([
+      this._energyRange,
+      this._energyDayOffset,
+      this._energyMonthTotal,
+      this._energyError || "",
+      this._energyData.map((row) => [
+        Number(row.start),
+        Number(row.change) || 0,
+        Number(row.samples) || 0,
+        Boolean(row.partial),
+        Boolean(row.live),
+      ]),
+    ]);
+  }
+
+  async _loadEnergyStatistics() {
+    if (!this._hass?.connection) return;
+    clearTimeout(this._energyRefreshTimer);
+    const config = this._config();
+    const entity = this._state(config.energySensor);
+    const numericState = Number(entity?.state);
+    if (!entity) {
+      this._energyData = [];
+      this._energyMonthTotal = null;
+      this._energyError = `No existe ${config.energySensor} en Home Assistant.`;
+      this._energyLoading = false;
+      this._requestRender();
+      return;
+    }
+    if (!Number.isFinite(numericState)) {
+      this._energyData = [];
+      this._energyMonthTotal = null;
+      this._energyError = `${config.energySensor} no entrega un valor numérico.`;
+      this._energyLoading = false;
+      this._requestRender();
+      return;
+    }
+
+    const requestId = ++this._energyRequestId;
+    const previousViewSignature = this._energyViewSignature();
+    const hadVisibleData = this._energyData.length > 0;
+    const definition = this._energyRangeDefinition();
+    const actualNow = new Date();
+    const monthStart = new Date(actualNow.getFullYear(), actualNow.getMonth(), 1, 0, 0, 0, 0);
+    const selectedQueryStart = new Date(definition.start.getTime() - 60 * 60 * 1000);
+    const selectedStatisticsPeriod = this._energyRange === "year" ? "hour" : "5minute";
+    const monthQueryStart = new Date(monthStart.getTime() - 60 * 60 * 1000);
+    this._energyLoading = true;
+    this._energyError = null;
+    // En refrescos de fondo conservamos el DOM actual. Mostrar un spinner sobre
+    // datos ya visibles obligaría a reconstruir la gráfica y rompería el scroll.
+    if (!hadVisibleData) this._requestRender();
+
+    try {
+      const metadataResult = await this._hass.connection.sendMessagePromise({
+        type: "recorder/get_statistics_metadata",
+        statistic_ids: [config.energySensor],
+      });
+      if (requestId !== this._energyRequestId) return;
+      const metadataRows = Array.isArray(metadataResult) ? metadataResult : [];
+      const energyMetadata = metadataRows.find((item) => item?.statistic_id === config.energySensor) || null;
+      if (!energyMetadata || !energyMetadata.has_sum) {
+        throw new Error("La entidad no dispone de estadísticas acumulables. Verifica device_class: energy y state_class total/total_increasing.");
+      }
+
+      const selectedPromise = this._hass.connection.sendMessagePromise({
+        type: "recorder/statistics_during_period",
+        start_time: selectedQueryStart.toISOString(),
+        end_time: definition.end.toISOString(),
+        statistic_ids: [config.energySensor],
+        period: selectedStatisticsPeriod,
+        units: { energy: "kWh" },
+        types: ["state"],
+      });
+      const monthPromise = this._hass.connection.sendMessagePromise({
+        type: "recorder/statistics_during_period",
+        start_time: monthQueryStart.toISOString(),
+        end_time: actualNow.toISOString(),
+        statistic_ids: [config.energySensor],
+        period: "hour",
+        units: { energy: "kWh" },
+        types: ["state"],
+      });
+      const [selectedResult, monthResult] = await Promise.all([selectedPromise, monthPromise]);
+      if (requestId !== this._energyRequestId) return;
+
+      const normalize = (result) => (Array.isArray(result?.[config.energySensor]) ? result[config.energySensor] : [])
+        .map((row) => ({
+          start: Number(row.start),
+          end: Number(row.end),
+          change: row.change === undefined || row.change === null ? null : Math.max(0, Number(row.change) || 0),
+          state: row.state === undefined || row.state === null ? null : Number(row.state),
+        }))
+        .filter((row) => Number.isFinite(row.start) && (Number.isFinite(row.state) || Number.isFinite(row.change)));
+
+      const normalizedRows = normalize(selectedResult);
+      const selectedDeltaRows = this._deriveEnergyStateDeltas(normalizedRows, definition.start, definition.end);
+      this._energyData = this._energyRange === "day"
+        ? this._aggregateEnergyDayRows(selectedDeltaRows, definition, entity)
+        : this._aggregateEnergyCalendarRows(selectedDeltaRows, definition, entity, this._energyRange);
+
+      const normalizedMonthRows = normalize(monthResult);
+      const monthRows = this._deriveEnergyStateDeltas(normalizedMonthRows, monthStart, actualNow);
+      this._energyMonthTotal = this._calculateCurrentMonthEnergy(monthRows, actualNow, entity);
+
+      if (this._energyRange === "month" && this._energyData.length) {
+        this._energyMonthTotal = this._energyData.reduce((sum, row) => sum + Math.max(0, Number(row.change) || 0), 0);
+      } else if (this._energyRange === "year" && Number.isFinite(this._energyMonthTotal)) {
+        const currentMonthStart = new Date(actualNow.getFullYear(), actualNow.getMonth(), 1, 0, 0, 0, 0).getTime();
+        const currentMonthBucket = this._energyData.find((row) => Number(row.start) === currentMonthStart);
+        if (currentMonthBucket) currentMonthBucket.change = this._energyMonthTotal;
+      }
+
+      this._energyLastLoadedAt = Date.now();
+      this._energyError = null;
+    } catch (error) {
+      if (requestId !== this._energyRequestId) return;
+      this._energyData = [];
+      this._energyMonthTotal = null;
+      this._energyError = error?.message || "No se pudieron consultar las estadísticas energéticas.";
+      console.error("Error cargando estadísticas de energía del showroom:", error);
+    } finally {
+      if (requestId === this._energyRequestId) {
+        this._energyLoading = false;
+        const viewChanged = previousViewSignature !== this._energyViewSignature();
+        if (!hadVisibleData || viewChanged) this._requestRender();
+        this._scheduleEnergyRefresh();
+      }
+    }
+  }
+
+  _setEnergyRange(range) {
+    if (!["day", "month", "year"].includes(range) || range === this._energyRange) return;
+    this._energyRange = range;
+    this._energyData = [];
+    this._energyError = null;
+    this._energyLastLoadedAt = 0;
+    this._energyAutoFollow = true;
+    this._energyScrollLeft = null;
+    this._loadEnergyStatistics();
+  }
+
+  _shiftEnergyDay(delta) {
+    if (this._energyRange !== "day") return;
+    const step = Number(delta);
+    if (!Number.isFinite(step) || step === 0) return;
+    const nextOffset = Math.min(0, this._energyDayOffset + step);
+    if (nextOffset === this._energyDayOffset) return;
+    this._energyDayOffset = nextOffset;
+    this._energyData = [];
+    this._energyError = null;
+    this._energyLastLoadedAt = 0;
+    this._energyAutoFollow = true;
+    this._energyScrollLeft = null;
+    this._loadEnergyStatistics();
+  }
+
+  _resetEnergyDay() {
+    if (this._energyRange !== "day" || this._energyDayOffset === 0) return;
+    this._energyDayOffset = 0;
+    this._energyData = [];
+    this._energyError = null;
+    this._energyLastLoadedAt = 0;
+    this._energyAutoFollow = true;
+    this._energyScrollLeft = null;
+    this._loadEnergyStatistics();
+  }
+
+  _formatEnergy(value, digits = 2) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return "—";
+    return numeric.toLocaleString("es-BO", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  }
+
+  _energyLabel(timestamp, range = this._energyRange) {
+    const date = new Date(Number(timestamp));
+    if (!Number.isFinite(date.getTime())) return "—";
+    if (range === "year") return date.toLocaleDateString("es-BO", { month: "short" }).replace(".", "");
+    if (range === "month") return String(date.getDate());
+    return date.toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit", hour12: false });
+  }
+
+  _captureEnergyChartScroll() {
+    const wrap = this.shadowRoot?.querySelector("[data-energy-scroll]");
+    if (!wrap) return;
+    const maxScroll = Math.max(0, wrap.scrollWidth - wrap.clientWidth);
+    this._energyScrollLeft = wrap.scrollLeft;
+    // Solo seguimos automáticamente el extremo derecho si realmente estamos allí.
+    // El margen pequeño evita que un gesto manual sea interpretado como auto-follow.
+    this._energyAutoFollow = maxScroll <= 0 || maxScroll - wrap.scrollLeft <= 8;
+  }
+
+  _handleEnergyScroll(event) {
+    const wrap = event.target?.closest?.("[data-energy-scroll]");
+    if (!wrap) return;
+    const maxScroll = Math.max(0, wrap.scrollWidth - wrap.clientWidth);
+    this._energyScrollLeft = wrap.scrollLeft;
+    this._energyAutoFollow = maxScroll <= 0 || maxScroll - wrap.scrollLeft <= 8;
+  }
+
+  _restoreEnergyChartScroll() {
+    const wrap = this.shadowRoot?.querySelector("[data-energy-scroll]");
+    if (!wrap) return;
+    const maxScroll = Math.max(0, wrap.scrollWidth - wrap.clientWidth);
+    if (this._energyAutoFollow || this._energyScrollLeft === null) {
+      wrap.scrollLeft = maxScroll;
+      this._energyScrollLeft = wrap.scrollLeft;
+      return;
+    }
+    wrap.scrollLeft = Math.max(0, Math.min(this._energyScrollLeft, maxScroll));
+  }
+
+  _energyChart() {
+    const rows = this._energyData;
+    if (this._energyLoading && !rows.length) return `<div class="energy-empty"><span class="energy-spinner"></span>Consultando estadísticas de Home Assistant…</div>`;
+    if (this._energyError) return `<div class="energy-empty error">${this._icon("status")}<span>${this._escape(this._energyError)}</span></div>`;
+    if (!rows.length) return `<div class="energy-empty">No hay estadísticas de consumo disponibles para este período.</div>`;
+
+    const height = 300;
+    const padLeft = 12;
+    const padRight = 16;
+    const padTop = 20;
+    const padBottom = 44;
+    const slotWidth = this._energyRange === "day" ? 68 : this._energyRange === "month" ? 38 : 62;
+    const width = Math.max(620, rows.length * slotWidth + padLeft + padRight);
+    const chartHeight = height - padTop - padBottom;
+    const chartWidth = width - padLeft - padRight;
+    const maxValue = Math.max(...rows.map((row) => row.change), 0.001);
+    const gap = this._energyRange === "day" ? 10 : rows.length > 24 ? 4 : 7;
+    const barWidth = Math.max(6, (chartWidth - gap * Math.max(0, rows.length - 1)) / rows.length);
+    const labelEvery = this._energyRange === "month" ? Math.max(1, Math.ceil(rows.length / 10)) : this._energyRange === "day" ? 2 : 1;
+    const ratios = [0, .25, .5, .75, 1];
+    const grid = ratios.map((ratio) => {
+      const y = padTop + chartHeight * (1 - ratio);
+      return `<line x1="${padLeft}" y1="${y.toFixed(1)}" x2="${width - padRight}" y2="${y.toFixed(1)}" class="energy-grid-line"/>`;
+    }).join("");
+    const axis = ratios.map((ratio) => {
+      const y = padTop + chartHeight * (1 - ratio);
+      const label = this._formatEnergy(maxValue * ratio, maxValue < 1 ? 2 : 1);
+      return `<span class="energy-y-tick" style="top:${y.toFixed(1)}px">${this._escape(label)}</span>`;
+    }).join("");
+    const bars = rows.map((row, index) => {
+      const x = padLeft + index * (barWidth + gap);
+      const barHeight = row.change > 0 ? Math.max(2, (row.change / maxValue) * chartHeight) : 1;
+      const y = padTop + chartHeight - barHeight;
+      const showLabel = index % labelEvery === 0 || index === rows.length - 1;
+      const label = this._energyLabel(row.start);
+      const status = row.partial ? " · en curso" : "";
+      const currentMarker = row.partial
+        ? `<text x="${(x + barWidth / 2).toFixed(1)}" y="${(padTop + 12).toFixed(1)}" text-anchor="middle" class="energy-current-label">ahora</text>`
+        : "";
+      return `<g class="energy-bar-group ${row.partial ? "is-current" : ""}"><rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}" rx="${Math.min(5, barWidth / 2).toFixed(1)}" class="energy-bar ${row.partial ? "is-partial" : ""}"><title>${this._escape(label)} · ${this._formatEnergy(row.change)} kWh${status}</title></rect>${currentMarker}${showLabel ? `<text x="${(x + barWidth / 2).toFixed(1)}" y="${height - 16}" text-anchor="middle" class="energy-axis-text">${this._escape(label)}</text>` : ""}</g>`;
+    }).join("");
+
+    return `<div class="energy-chart-layout"><div class="energy-y-axis" aria-hidden="true"><span class="energy-y-unit">kWh</span>${axis}</div><div class="energy-chart-wrap" data-energy-scroll><svg class="energy-chart" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Gráfica de consumo energético estimado en kWh">${grid}${bars}</svg></div></div>`;
+  }
+
+  async _loadHistory() {
+    const config = this._config();
+    if (!this._hass?.callApi) return;
+
+    const hours = Math.max(config.historyHours, config.chartHours);
+    const start = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+    const end = new Date().toISOString();
+    const entityIds = [
+      config.lightCountSensor,
+      ...config.spots.map((item) => item.entity),
+      ...config.samples.map((item) => item.entity),
+    ].filter(Boolean).join(",");
+
+    if (!entityIds) return;
+
+    const path =
+      `history/period/${encodeURIComponent(start)}` +
+      `?filter_entity_id=${encodeURIComponent(entityIds)}` +
+      `&end_time=${encodeURIComponent(end)}` +
+      "&minimal_response&no_attributes";
+
+    try {
+      this._history = await this._hass.callApi("GET", path);
+      this._historyError = "";
+    } catch (error) {
+      this._history = [];
+      this._historyError = "No se pudo cargar el historial.";
+      console.error("No se pudo cargar el historial del showroom:", error);
+    }
+    this._requestRender();
+  }
+
+  _state(entityId) {
+    return this._liveStates.get(entityId) || this._hass?.states?.[entityId];
+  }
+
+  _isUnavailable(entityId) {
+    const state = this._state(entityId)?.state;
+    return !state || state === "unknown" || state === "unavailable";
+  }
+
+  _visibleSwitchState(entityId) {
+    return this._pendingSwitches.get(entityId)?.desired || this._state(entityId)?.state || "unavailable";
+  }
+
+  async _toggleSwitch(entityId) {
+    if (!entityId || !this._hass) return;
+    const stateObject = this._state(entityId);
+    if (!stateObject || ["unknown", "unavailable"].includes(stateObject.state)) {
+      this._switchErrors.set(entityId, "No disponible");
+      this._requestRender();
+      return;
+    }
+
+    const visibleState = this._visibleSwitchState(entityId);
+    const desired = visibleState === "on" ? "off" : "on";
+    const service = desired === "on" ? "turn_on" : "turn_off";
+    const domain = entityId.split(".")[0] || "switch";
+
+    this._pendingSwitches.set(entityId, { desired, startedAt: Date.now() });
+    this._switchErrors.delete(entityId);
+    this._requestRender();
+
+    try {
+      await this._hass.callService(domain, service, { entity_id: entityId });
+      const previousTimer = this._switchTimers.get(entityId);
+      if (previousTimer) clearTimeout(previousTimer);
+      const timer = setTimeout(() => this._verifySwitchState(entityId, desired), 6000);
+      this._switchTimers.set(entityId, timer);
+    } catch (error) {
+      this._pendingSwitches.delete(entityId);
+      this._switchErrors.set(entityId, "La acción falló");
+      this._requestRender();
+      console.error(`Error ejecutando ${service} en ${entityId}:`, error);
+    }
+  }
+
+  async _verifySwitchState(entityId, desired) {
+    await this._fetchCurrentStates();
+    const confirmed = this._state(entityId)?.state === desired;
+    this._pendingSwitches.delete(entityId);
+    this._switchTimers.delete(entityId);
+    if (confirmed) this._switchErrors.delete(entityId);
+    else this._switchErrors.set(entityId, "Sin confirmación");
+    this._requestRender();
+  }
+
+  _sceneStatus(scene) {
+    const expectations = [
+      ...scene.onEntities.map((entityId) => ({ entityId, desired: "on" })),
+      ...scene.offEntities.map((entityId) => ({ entityId, desired: "off" })),
+    ];
+
+    if (!expectations.length) {
+      return { active: false, unavailable: false, mismatches: [] };
+    }
+
+    const unavailable = expectations.some(({ entityId }) => this._isUnavailable(entityId));
+    const mismatches = expectations.filter(
+      ({ entityId, desired }) => this._state(entityId)?.state !== desired,
+    );
+
+    return {
+      active: !unavailable && mismatches.length === 0,
+      unavailable,
+      mismatches,
+    };
+  }
+
+  _sceneExpectations(scene) {
+    return [
+      ...scene.offEntities.map((entityId) => ({ entityId, desired: "off" })),
+      ...scene.onEntities.map((entityId) => ({ entityId, desired: "on" })),
+    ];
+  }
+
+  _markExpectedStates(expectations) {
+    const startedAt = Date.now();
+    for (const { entityId, desired } of expectations) {
+      this._pendingSwitches.set(entityId, { desired, startedAt });
+      this._switchErrors.delete(entityId);
+    }
+  }
+
+  _clearExpectedStates(expectations) {
+    for (const { entityId } of expectations) {
+      this._pendingSwitches.delete(entityId);
+      const timer = this._switchTimers.get(entityId);
+      if (timer) clearTimeout(timer);
+      this._switchTimers.delete(entityId);
+    }
+  }
+
+  async _setEntitiesState(entityIds, desired) {
+    const ids = [...new Set((entityIds || []).filter(Boolean))];
+    if (!ids.length) return;
+
+    const groups = new Map();
+    for (const entityId of ids) {
+      const domain = entityId.split(".")[0];
+      if (!domain) continue;
+      if (!groups.has(domain)) groups.set(domain, []);
+      groups.get(domain).push(entityId);
+    }
+
+    const service = desired === "on" ? "turn_on" : "turn_off";
+    for (const [domain, domainEntities] of groups) {
+      await this._hass.callService(domain, service, { entity_id: domainEntities });
+    }
+  }
+
+  async _waitForExpectedStates(expectations, timeoutMs = 7000) {
+    const deadline = Date.now() + timeoutMs;
+    let mismatches = expectations;
+
+    while (Date.now() < deadline) {
+      await this._fetchCurrentStates();
+      mismatches = expectations.filter(
+        ({ entityId, desired }) => this._state(entityId)?.state !== desired,
+      );
+      if (!mismatches.length) return { ok: true, mismatches: [] };
+      await new Promise((resolve) => setTimeout(resolve, 450));
+    }
+
+    return { ok: false, mismatches };
+  }
+
+  async _runScene(sceneKey, label) {
+    if (!sceneKey || this._pendingAction) return;
+
+    const config = this._config();
+    const scene = this._allScenes(config).find(
+      (item) => item.key === sceneKey || item.entity === sceneKey,
+    );
+    if (!scene) {
+      this._notify("La escena no está configurada.", "error");
+      return;
+    }
+
+    const expectations = this._sceneExpectations(scene);
+    this._pendingAction = scene.key;
+    this._markExpectedStates(expectations);
+    this._requestRender();
+
+    let sceneServiceError = null;
+
+    try {
+      // Las escenas operativas conservan su scene.* para cualquier acción
+      // adicional de Home Assistant. Las escenas de muestra no inventan
+      // entidades: aplican directamente un perfil exclusivo y verificable.
+      if (scene.entity && !scene.directOnly) {
+        try {
+          await this._hass.callService("scene", "turn_on", {
+            entity_id: scene.entity,
+          });
+        } catch (error) {
+          sceneServiceError = error;
+          console.warn(
+            `La escena ${scene.entity} no respondió; se aplicará el perfil directo.`,
+            error,
+          );
+        }
+      }
+
+      // La exclusividad es deliberada: primero se apaga cualquier circuito
+      // ajeno al perfil y después se encienden únicamente sus luminarias.
+      await this._setEntitiesState(scene.offEntities, "off");
+      await this._setEntitiesState(scene.onEntities, "on");
+
+      const verification = await this._waitForExpectedStates(expectations);
+      if (!verification.ok) {
+        const failed = verification.mismatches.map((item) => item.entityId).join(", ");
+        throw new Error(`No se confirmaron los estados de: ${failed}`);
+      }
+
+      const message = sceneServiceError
+        ? `${label || "Modo"} aplicado mediante control directo.`
+        : `${label || "Modo"} activo.`;
+      this._notify(message, "success");
+    } catch (error) {
+      for (const { entityId: failedEntity, desired } of expectations) {
+        if (this._state(failedEntity)?.state !== desired) {
+          this._switchErrors.set(failedEntity, "No confirmó el modo");
+        }
+      }
+      this._notify("No se pudo aplicar completamente el modo seleccionado.", "error");
+      console.error("Error aplicando modo del showroom:", error);
+    } finally {
+      this._clearExpectedStates(expectations);
+      this._pendingAction = "";
+      await this._fetchCurrentStates();
+      this._requestRender();
+    }
+  }
+
+  async _executeGeneralPower(desired, options = {}) {
+    if (!this._hass || this._pendingAction || !["on", "off"].includes(desired)) {
+      return false;
+    }
+
+    const config = this._config();
+    const scriptEntity = desired === "on" ? config.powerOnScript : config.powerOffScript;
+    if (!scriptEntity) {
+      this._notify("El control general no está configurado.", "error");
+      return false;
+    }
+
+    const expectations = config.sceneControlEntities.map((entityId) => ({
+      entityId,
+      desired,
+    }));
+    const successMessage = options.successMessage ||
+      (desired === "on" ? "Iluminación general encendida." : "Iluminación general apagada.");
+    const errorMessage = options.errorMessage ||
+      (desired === "on"
+        ? "No se pudo encender toda la iluminación."
+        : "No se pudo apagar toda la iluminación.");
+
+    this._pendingAction = scriptEntity;
+    this._markExpectedStates(expectations);
+    this._requestRender();
+
+    let scriptError = null;
+
+    try {
+      // El script conserva cualquier automatización adicional definida en Home
+      // Assistant. El ajuste directo posterior hace determinista el estado de
+      // las luminarias que participan en escenas y evita resultados parciales.
+      try {
+        await this._hass.callService("script", "turn_on", {
+          entity_id: scriptEntity,
+        });
+      } catch (error) {
+        scriptError = error;
+        console.warn(`El script ${scriptEntity} no respondió; se aplicará el control directo.`, error);
+      }
+
+      await this._setEntitiesState(config.sceneControlEntities, desired);
+      const verification = await this._waitForExpectedStates(expectations);
+
+      if (!verification.ok) {
+        const failed = verification.mismatches.map((item) => item.entityId).join(", ");
+        throw new Error(`No se confirmaron los estados de: ${failed}`);
+      }
+
+      this._confirmAction = "";
+      this._notify(successMessage, "success");
+      return true;
+    } catch (error) {
+      for (const { entityId, desired: expectedState } of expectations) {
+        if (this._state(entityId)?.state !== expectedState) {
+          this._switchErrors.set(entityId, "Sin confirmación");
+        }
+      }
+      this._notify(errorMessage, "error");
+      console.error("Error ejecutando el control general del showroom:", {
+        error,
+        scriptError,
+        desired,
+      });
+      return false;
+    } finally {
+      this._clearExpectedStates(expectations);
+      this._pendingAction = "";
+      await this._fetchCurrentStates();
+      this._requestRender();
+    }
+  }
+
+  async _confirmGeneralPower() {
+    const desired = this._confirmAction;
+    if (!["on", "off"].includes(desired)) return;
+
+    await this._executeGeneralPower(desired, {
+      successMessage:
+        desired === "on"
+          ? "Toda la iluminación del showroom está encendida."
+          : "Toda la iluminación del showroom está apagada.",
+    });
+  }
+
+  async _clearScene() {
+    if (this._pendingAction) return;
+
+    await this._executeGeneralPower("off", {
+      successMessage: "Escena apagada. La iluminación del showroom quedó apagada.",
+      errorMessage: "No se pudo apagar completamente la escena.",
+    });
+  }
+
+  async _mediaAction(service) {
+    const entityId = this._config().mediaPlayer;
+    if (!entityId || !service || this._isUnavailable(entityId)) return;
+    try {
+      await this._hass.callService("media_player", service, { entity_id: entityId });
+    } catch (error) {
+      this._notify("No se pudo controlar el reproductor.", "error");
+      console.error(`Error ejecutando media_player.${service}:`, error);
+    }
+  }
+
+  _notify(message, type = "success") {
+    clearTimeout(this._toastTimer);
+    this._toast = { message, type };
+    this._requestRender();
+    this._toastTimer = setTimeout(() => {
+      this._toast = null;
+      this._requestRender();
+    }, 4200);
+  }
+
+  _historyMap() {
+    const result = new Map();
+    for (const group of this._history || []) {
+      const entityId = group?.[0]?.entity_id;
+      if (entityId) result.set(entityId, group);
+    }
+    return result;
+  }
+
+  _historySegments(group, startTime, endTime) {
+    if (!Array.isArray(group) || !group.length) return [];
+    const events = group
+      .map((item) => ({
+        state: item.state,
+        time: new Date(item.last_changed || item.last_updated).getTime(),
+      }))
+      .filter((item) => Number.isFinite(item.time))
+      .sort((a, b) => a.time - b.time);
+    if (!events.length) return [];
+
+    const segments = [];
+    for (let index = 0; index < events.length; index += 1) {
+      const current = events[index];
+      const next = events[index + 1];
+      const start = Math.max(startTime, current.time);
+      const end = Math.min(endTime, next?.time ?? endTime);
+      if (end <= start) continue;
+      segments.push({
+        state: current.state,
+        left: ((start - startTime) / (endTime - startTime)) * 100,
+        width: ((end - start) / (endTime - startTime)) * 100,
+      });
+    }
+    return segments;
+  }
+
+  _sparkline(entityId, hours) {
+    const group = this._historyMap().get(entityId) || [];
+    const endTime = Date.now();
+    const startTime = endTime - hours * 60 * 60 * 1000;
+    const points = group
+      .map((item) => ({
+        value: Number(item.state),
+        time: new Date(item.last_changed || item.last_updated).getTime(),
+      }))
+      .filter((item) => Number.isFinite(item.value) && Number.isFinite(item.time) && item.time >= startTime)
+      .sort((a, b) => a.time - b.time);
+
+    const current = Number(this._state(entityId)?.state);
+    if (Number.isFinite(current)) points.push({ value: current, time: endTime });
+    if (!points.length) return { path: "", min: "—", max: "—", avg: "—" };
+
+    const values = points.map((item) => item.value);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
+    const range = max - min || 1;
+    const path = points
+      .map((item, index) => {
+        const x = ((item.time - startTime) / (endTime - startTime)) * 300;
+        const y = 66 - ((item.value - min) / range) * 52;
+        return `${index ? "L" : "M"}${Math.max(0, Math.min(300, x)).toFixed(1)},${y.toFixed(1)}`;
+      })
+      .join(" ");
+
+    return {
+      path,
+      min: this._formatNumber(min),
+      max: this._formatNumber(max),
+      avg: this._formatNumber(avg),
+    };
+  }
+
+  _formatNumber(value) {
+    if (!Number.isFinite(value)) return "—";
+    return new Intl.NumberFormat("es-BO", { maximumFractionDigits: 1 }).format(value);
+  }
+
+  _updateClock() {
+    if (!this.shadowRoot) return;
+
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat("es-BO", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).formatToParts(now);
+
+    const hour = parts.find((part) => part.type === "hour")?.value || "--";
+    const minute = parts.find((part) => part.type === "minute")?.value || "--";
+    const period = (parts.find((part) => part.type === "dayPeriod")?.value || "")
+      .replaceAll(".", "")
+      .replaceAll(" ", "")
+      .toUpperCase();
+
+    for (const element of this.shadowRoot.querySelectorAll("[data-clock-time]")) {
+      element.textContent = `${hour}:${minute}`;
+    }
+
+    for (const element of this.shadowRoot.querySelectorAll("[data-clock-period]")) {
+      element.textContent = period || "—";
+    }
+
+    const timeElement = this.shadowRoot.querySelector("[data-current-time]");
+    if (timeElement) {
+      timeElement.dateTime = now.toISOString();
+      timeElement.setAttribute("aria-label", `${hour}:${minute} ${period}`.trim());
+    }
+  }
+
+  _icon(name, className = "") {
+    const path = ICON_PATHS[name] || ICON_PATHS.bulb;
+    return `<svg class="icon ${this._escape(className)}" viewBox="0 0 24 24" aria-hidden="true">${path}</svg>`;
+  }
+
+  _escape(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  _renderDevice(item) {
+    const stateObject = this._state(item.entity);
+    const state = this._visibleSwitchState(item.entity);
+    const isOn = state === "on";
+    const unavailable = !stateObject || ["unknown", "unavailable"].includes(stateObject.state);
+    const pending = this._pendingSwitches.has(item.entity);
+    const error = this._switchErrors.get(item.entity);
+    const status = error || (pending
+      ? (state === "on" ? "Encendiendo…" : "Apagando…")
+      : unavailable
+        ? "No disponible"
+        : isOn
+          ? "Encendido"
+          : "Apagado");
+
+    return `
+      <button
+        class="device ${isOn ? "is-on" : ""} ${pending ? "is-pending" : ""} ${error ? "is-error" : ""}"
+        data-action="toggle-switch"
+        data-entity="${this._escape(item.entity)}"
+        aria-pressed="${isOn}"
+        aria-label="${this._escape(`${item.name}: ${status}`)}"
+        ${unavailable ? "disabled" : ""}
+      >
+        <span class="device-icon">${this._icon(item.icon)}</span>
+        <span class="device-copy">
+          <strong>${this._escape(item.name)}</strong>
+          <small>${this._escape(status)}</small>
+        </span>
+        <span class="device-switch" aria-hidden="true"><i></i></span>
+      </button>
+    `;
+  }
+
+  _renderDeviceGroup(title, eyebrow, items) {
+    return `
+      <section class="surface control-section">
+        <div class="section-heading compact-heading">
+          <div>
+            <span class="eyebrow">${this._escape(eyebrow)}</span>
+            <h2>${this._escape(title)}</h2>
+          </div>
+        </div>
+        <div class="device-grid">${items.map((item) => this._renderDevice(item)).join("")}</div>
+      </section>
+    `;
+  }
+
+  _renderWeather() {
+    const config = this._config();
+    const stateObject = this._state(config.weather);
+    if (!stateObject) {
+      return `
+        <section class="surface weather-card is-unavailable">
+          <span class="eyebrow">Clima</span>
+          <h2>Entidad no encontrada</h2>
+          <code>${this._escape(config.weather)}</code>
+        </section>
+      `;
+    }
+
+    const attrs = stateObject.attributes || {};
+    const condition = stateObject.state;
+    const forecast = this._forecast.slice(0, 3);
+    return `
+      <section class="surface weather-card">
+        <div class="weather-main">
+          <div class="weather-symbol">${this._escape(CONDITION_SYMBOLS[condition] || "·")}</div>
+          <div class="weather-copy">
+            <span class="eyebrow">Clima · Casa</span>
+            <h2>${this._escape(CONDITION_LABELS[condition] || condition)}</h2>
+            <p>Humedad ${this._escape(attrs.humidity ?? "—")}% · Viento ${this._escape(attrs.wind_speed ?? "—")} ${this._escape(attrs.wind_speed_unit ?? "")}</p>
+          </div>
+          <strong class="temperature">${this._escape(attrs.temperature ?? "—")}${this._escape(attrs.temperature_unit ?? "°")}</strong>
+        </div>
+        ${config.showForecast ? `
+          <div class="forecast-row">
+            ${forecast.length ? forecast.map((item) => {
+              const date = new Date(item.datetime);
+              const label = new Intl.DateTimeFormat("es-BO", { weekday: "short" }).format(date);
+              return `
+                <div class="forecast-item">
+                  <span>${this._escape(label)}</span>
+                  <b>${this._escape(CONDITION_SYMBOLS[item.condition] || "·")}</b>
+                  <strong>${this._escape(item.temperature ?? item.native_temperature ?? "—")}°</strong>
+                </div>
+              `;
+            }).join("") : '<span class="forecast-empty">Pronóstico no disponible</span>'}
+          </div>
+        ` : ""}
+      </section>
+    `;
+  }
+
+  _renderMedia() {
+    const config = this._config();
+    const stateObject = this._state(config.mediaPlayer);
+    const unavailable = !stateObject || ["unknown", "unavailable"].includes(stateObject.state);
+    const attrs = stateObject?.attributes || {};
+    const isPlaying = stateObject?.state === "playing";
+    const stateLabel = unavailable
+      ? "No disponible"
+      : isPlaying
+        ? "Reproduciendo"
+        : stateObject?.state === "paused"
+          ? "En pausa"
+          : stateObject?.state === "idle"
+            ? "En espera"
+            : stateObject?.state || "Detenido";
+    const title = attrs.media_title || attrs.friendly_name || "Showroom 1";
+    const artist = attrs.media_artist || attrs.source || "Música del showroom";
+    const volume = Number(attrs.volume_level);
+
+    const control = (service, icon, label, primary = false) => `
+      <button
+        class="media-button ${primary ? "primary" : ""}"
+        data-action="media"
+        data-service="${service}"
+        aria-label="${this._escape(label)}"
+        title="${this._escape(label)}"
+        ${unavailable ? "disabled" : ""}
+      >${this._icon(icon)}</button>
+    `;
+
+    return `
+      <section class="surface media-card ${unavailable ? "is-unavailable" : ""}">
+        <div class="section-heading compact-heading">
+          <div>
+            <span class="eyebrow">Multimedia</span>
+            <h2>Música</h2>
+          </div>
+          <span class="media-state ${isPlaying ? "is-playing" : ""}">${this._escape(stateLabel)}</span>
+        </div>
+        <div class="media-body">
+          <div class="media-art">${this._icon("music")}</div>
+          <div class="media-copy">
+            <strong>${this._escape(title)}</strong>
+            <span>${this._escape(artist)}</span>
+            <small>${Number.isFinite(volume) ? `Volumen ${Math.round(volume * 100)}%` : "Volumen no informado"}</small>
+          </div>
+        </div>
+        <div class="media-controls">
+          ${control("volume_down", "volumeDown", "Bajar volumen")}
+          ${control("media_previous_track", "previous", "Pista anterior")}
+          ${control("media_play_pause", isPlaying ? "pause" : "play", isPlaying ? "Pausar" : "Reproducir", true)}
+          ${control("media_next_track", "next", "Pista siguiente")}
+          ${control("volume_up", "volumeUp", "Subir volumen")}
+        </div>
+      </section>
+    `;
+  }
+
+  _renderSceneBlock({ eyebrow, title, scenes, className }) {
+    const config = this._config();
+    const activeScene = scenes.find((scene) => this._sceneStatus(scene).active);
+    const clearPending = this._pendingAction === config.powerOffScript;
+    const hasControlledLightsOn = config.sceneControlEntities.some(
+      (entityId) => this._state(entityId)?.state === "on",
+    );
+    const clearDisabled = Boolean(this._pendingAction) || !hasControlledLightsOn;
+
+    return `
+      <section class="surface scenes-card ${this._escape(className)}">
+        <div class="section-heading compact-heading scenes-heading">
+          <div>
+            <span class="eyebrow">${this._escape(eyebrow)}</span>
+            <h2>${this._escape(title)}</h2>
+          </div>
+          <div class="scene-heading-actions">
+            <span class="scene-summary ${activeScene ? "is-active" : ""}">
+              ${this._escape(clearPending ? "Apagando…" : activeScene ? activeScene.name : "Selección manual")}
+            </span>
+            <button
+              class="clear-scene-button"
+              data-action="clear-scene"
+              aria-label="Apagar toda la iluminación de escenas"
+              title="Apagar escena"
+              ${clearDisabled && !clearPending ? "disabled" : ""}
+            >
+              <span>${this._icon("power")}</span>
+              <strong>${clearPending ? "Apagando…" : "Apagar escena"}</strong>
+            </button>
+          </div>
+        </div>
+        <div class="scene-grid">
+          ${scenes.map((scene) => {
+            const pending = this._pendingAction === scene.key;
+            const status = this._sceneStatus(scene);
+            const stateText = pending
+              ? "Aplicando…"
+              : status.active
+                ? "Activo"
+                : status.unavailable
+                  ? "Sin datos"
+                  : "Inactivo";
+
+            return `
+              <button
+                class="scene ${pending ? "is-pending" : ""} ${status.active ? "is-active" : ""} ${status.unavailable ? "is-unavailable" : ""}"
+                data-action="run-scene"
+                data-scene-key="${this._escape(scene.key)}"
+                data-label="${this._escape(scene.name)}"
+                aria-pressed="${status.active}"
+                aria-label="${this._escape(`${scene.name}: ${stateText}`)}"
+                ${this._pendingAction && !pending ? "disabled" : ""}
+              >
+                <span class="scene-icon">${this._icon(scene.icon)}</span>
+                <span class="scene-copy">
+                  <strong>${this._escape(scene.name)}</strong>
+                  <small>${this._escape(scene.subtitle)}</small>
+                </span>
+                <span class="scene-state">${this._escape(stateText)}</span>
+              </button>
+            `;
+          }).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  _renderScenes() {
+    const config = this._config();
+    return `
+      ${this._renderSceneBlock({
+        eyebrow: "Ambientes",
+        title: "Escenas",
+        scenes: config.scenes,
+        className: "presentation-scenes-card",
+      })}
+      ${this._renderSceneBlock({
+        eyebrow: "Muestras",
+        title: "Escenas de muestra",
+        scenes: config.sampleScenes,
+        className: "sample-scenes-card",
+      })}
+    `;
+  }
+
+  _renderGeneralControl() {
+    const config = this._config();
+    const onPending = this._pendingAction === config.powerOnScript;
+    const offPending = this._pendingAction === config.powerOffScript;
+    return `
+      <section class="surface general-card">
+        <div class="section-heading compact-heading">
+          <div>
+            <span class="eyebrow">Acciones rápidas</span>
+            <h2>Control general</h2>
+          </div>
+        </div>
+        <div class="general-actions">
+          <button class="general-action power-on" data-action="open-power-on" ${this._pendingAction ? "disabled" : ""}>
+            <span>${this._icon("bulb")}</span>
+            <strong>${onPending ? "Encendiendo…" : "Encender todo"}</strong>
+          </button>
+          <button class="general-action power-off" data-action="open-power-off" ${this._pendingAction ? "disabled" : ""}>
+            <span>${this._icon("power")}</span>
+            <strong>${offPending ? "Apagando…" : "Apagar todo"}</strong>
+          </button>
+        </div>
+        ${config.reflector ? `
+          <div class="isolated-control">
+            <span class="isolated-label">Control aislado</span>
+            ${this._renderDevice(config.reflector)}
+          </div>
+        ` : ""}
+      </section>
+    `;
+  }
+
+  _renderActivity() {
+    const definition = this._energyRangeDefinition();
+    const values = this._energyData.map((row) => Math.max(0, Number(row.change) || 0));
+    const total = values.reduce((sum, value) => sum + value, 0);
+    const average = values.length ? total / values.length : 0;
+    const peak = values.length ? Math.max(...values) : 0;
+    const monthStartLabel = new Date().toLocaleDateString("es-BO", { month: "short", year: "numeric" }).replace(".", "");
+    const intervalStatus = this._energyRange === "day"
+      ? `${values.length} ${values.length === 1 ? "hora" : "horas"}`
+      : this._energyRange === "month"
+        ? `${values.length} ${values.length === 1 ? "día" : "días"}`
+        : `${values.length} ${values.length === 1 ? "mes" : "meses"}`;
+
+    return `
+      <section class="surface activity-card energy-shell">
+        <div class="energy-header">
+          <div class="energy-heading">
+            <div class="energy-heading-icon">${this._icon("energy")}</div>
+            <div>
+              <span class="eyebrow">Estimación por estados ON/OFF</span>
+              <h2>Consumo energético</h2>
+            </div>
+          </div>
+          <div class="energy-current" title="Consumo estimado desde el inicio del mes actual hasta ahora">
+            <small>Consumo del mes</small>
+            <strong>${this._energyLoading && this._energyMonthTotal === null ? "…" : this._energyMonthTotal === null ? "—" : `${this._formatEnergy(this._energyMonthTotal)} kWh`}</strong>
+            <span>${this._escape(monthStartLabel)} · hasta ahora</span>
+          </div>
+        </div>
+
+        <div class="energy-toolbar">
+          <div class="energy-tabs" role="tablist" aria-label="Período de consumo energético">
+            ${[["day","Día"],["month","Mes"],["year","Año"]].map(([range,label]) => `<button class="energy-tab ${this._energyRange === range ? "is-active" : ""}" data-action="energy-range" data-range="${range}" role="tab" aria-selected="${this._energyRange === range}">${label}</button>`).join("")}
+          </div>
+          <div class="energy-toolbar-actions">
+            ${this._energyRange === "day" ? `<div class="energy-day-nav" aria-label="Navegar por días"><button class="energy-day-step" data-action="energy-day-prev" title="Día anterior" aria-label="Día anterior">‹</button><button class="energy-day-current" data-action="energy-day-today" title="${this._energyDayOffset === 0 ? "Hoy" : "Volver a hoy"}">${this._energyDayOffset === 0 ? "Hoy" : this._energyDayOffset === -1 ? "Ayer" : `${Math.abs(this._energyDayOffset)} d`}</button><button class="energy-day-step" data-action="energy-day-next" title="Día siguiente" aria-label="Día siguiente" ${this._energyDayOffset === 0 ? "disabled" : ""}>›</button></div>` : ""}
+            <button class="icon-button" data-action="refresh-energy" aria-label="Actualizar consumo" title="Actualizar consumo">${this._icon("refresh")}</button>
+          </div>
+        </div>
+
+        <div class="energy-summary">
+          <div class="energy-stat"><small>Total del período</small><strong>${this._energyLoading && !this._energyData.length ? "…" : `${this._formatEnergy(total)} kWh`}</strong><span>${this._escape(definition.title)}</span></div>
+          <div class="energy-stat"><small>Promedio por ${this._escape(definition.intervalLabel)}</small><strong>${this._energyLoading && !this._energyData.length ? "…" : `${this._formatEnergy(average)} kWh`}</strong><span>${this._escape(intervalStatus)}</span></div>
+          <div class="energy-stat"><small>Mayor intervalo</small><strong>${this._energyLoading && !this._energyData.length ? "…" : `${this._formatEnergy(peak)} kWh`}</strong><span>Pico estimado del período</span></div>
+        </div>
+
+        <div class="energy-note">9 circuitos incluidos · potencia instalada conocida 1.395 kW · reflector exterior pendiente de potencia</div>
+
+        <div class="energy-chart-card">
+          <div class="energy-chart-title"><strong>${this._energyRange === "day" ? "Consumo por hora" : this._energyRange === "month" ? "Consumo por día" : "Consumo por mes"}</strong><span>${this._escape(definition.title)}</span></div>
+          ${this._energyChart()}
+        </div>
+      </section>
+    `;
+  }
+
+  _renderSystem() {
+    const config = this._config();
+    const batteryState = this._state(config.batteryLevel);
+    const battery = Number(batteryState?.state);
+    const batteryClass = Number.isFinite(battery)
+      ? battery > 60 ? "good" : battery > 25 ? "warning" : "danger"
+      : "muted";
+
+    return `
+      <section class="surface system-card">
+        <div class="section-heading compact-heading">
+          <div>
+            <span class="eyebrow">Infraestructura</span>
+            <h2>Sistema</h2>
+          </div>
+        </div>
+        <div class="system-grid">
+          <article class="system-tile system-tile-wide ${batteryClass}">
+            <span class="system-icon">${this._icon("battery")}</span>
+            <div><small>Batería Pad</small><strong>${Number.isFinite(battery) ? `${this._escape(battery)}%` : "No disponible"}</strong></div>
+          </article>
+        </div>
+      </section>
+    `;
+  }
+
+  _renderConfirmDialog() {
+    if (!["on", "off"].includes(this._confirmAction)) return "";
+
+    const isPowerOn = this._confirmAction === "on";
+    const config = this._config();
+    const pendingEntity = isPowerOn ? config.powerOnScript : config.powerOffScript;
+    const pending = this._pendingAction === pendingEntity;
+    const title = isPowerOn
+      ? "¿Encender toda la iluminación?"
+      : "¿Apagar todo el showroom?";
+    const description = isPowerOn
+      ? "Se encenderán las luminarias generales del showroom. Después podrás elegir una escena o ajustar cada zona de forma individual."
+      : "Se apagarán las luminarias generales del showroom y cualquier escena activa.";
+    const confirmLabel = isPowerOn ? "Sí, encender" : "Sí, apagar";
+
+    return `
+      <div class="dialog-backdrop" data-action="cancel-power-confirm">
+        <section class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="power-dialog-title" data-dialog-card>
+          <div class="dialog-icon ${isPowerOn ? "is-power-on" : "is-power-off"}">${this._icon(isPowerOn ? "bulb" : "power")}</div>
+          <span class="eyebrow">Confirmar acción</span>
+          <h2 id="power-dialog-title">${this._escape(title)}</h2>
+          <p>${this._escape(description)}</p>
+          <div class="dialog-actions">
+            <button class="secondary-button" data-action="cancel-power-confirm" ${pending ? "disabled" : ""}>Cancelar</button>
+            <button class="primary-button ${isPowerOn ? "confirm-on" : ""}" data-action="confirm-power" ${pending ? "disabled" : ""}>${pending ? "Ejecutando…" : this._escape(confirmLabel)}</button>
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
+  render() {
+    if (!this.shadowRoot || !this._hass) return;
+    // Si un cambio legítimo requiere reconstruir el panel, conservamos la posición
+    // horizontal antes de sustituir shadowRoot.innerHTML.
+    this._captureEnergyChartScroll();
+    this.setAttribute("data-theme", this._theme);
+
+    const config = this._config();
+    const weather = this._state(config.weather);
+    const weatherAttrs = weather?.attributes || {};
+    const condition = weather?.state;
+    const nextTheme = this._theme === "dark" ? "claro" : "oscuro";
+
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host {
+          --primary: #f26522;
+          --primary-hover: #d95a1e;
+          --primary-soft: rgba(242, 101, 34, 0.10);
+          --primary-medium: rgba(242, 101, 34, 0.18);
+          --primary-border: rgba(242, 101, 34, 0.38);
+          --primary-glow: rgba(242, 101, 34, 0.18);
+          --background: #061c2b;
+          --background-secondary: #0b2b40;
+          --background-deep: #051722;
+          --surface: rgba(255, 255, 255, 0.045);
+          --surface-strong: rgba(255, 255, 255, 0.065);
+          --surface-hover: rgba(255, 255, 255, 0.075);
+          --surface-active: rgba(242, 101, 34, 0.105);
+          --surface-control: rgba(255, 255, 255, 0.055);
+          --text-primary: rgba(255, 255, 255, 0.93);
+          --text-secondary: rgba(255, 255, 255, 0.70);
+          --text-tertiary: rgba(255, 255, 255, 0.48);
+          --border-subtle: rgba(255, 255, 255, 0.065);
+          --border-default: rgba(255, 255, 255, 0.095);
+          --border-emphasis: rgba(255, 255, 255, 0.15);
+          --icon-muted: rgba(255, 255, 255, 0.58);
+          --track: rgba(255, 255, 255, 0.08);
+          --timeline-off: rgba(255, 255, 255, 0.13);
+          --grid-line: rgba(255, 255, 255, 0.07);
+          --header: rgba(8, 34, 50, 0.82);
+          --overlay: rgba(0, 10, 18, 0.76);
+          --modal: #0a2739;
+          --shadow: rgba(0, 0, 0, 0.15);
+          --shadow-strong: rgba(0, 0, 0, 0.42);
+          --success: #22c55e;
+          --warning: #f59e0b;
+          --error: #ef4444;
+          --info: #38bdf8;
+          --radius-sm: 10px;
+          --radius-md: 16px;
+          --radius-lg: 22px;
+          --radius-pill: 999px;
+          --motion: 180ms;
+          display: block;
+          min-height: 100%;
+          container-type: inline-size;
+          container-name: showroom-panel;
+          color: var(--text-primary);
+          background:
+            radial-gradient(circle at 10% 4%, rgba(242, 101, 34, 0.14), transparent 34%),
+            radial-gradient(circle at 88% 0%, rgba(252, 84, 60, 0.07), transparent 28%),
+            linear-gradient(155deg, var(--background-deep), var(--background-secondary) 58%, var(--background));
+          font-family: "Plus Jakarta Sans", Inter, Arial, sans-serif;
+        }
+
+        :host([data-theme="light"]) {
+          --background: #edf3f6;
+          --background-secondary: #dfe9ee;
+          --background-deep: #f8fafb;
+          --surface: rgba(255, 255, 255, 0.76);
+          --surface-strong: rgba(255, 255, 255, 0.94);
+          --surface-hover: rgba(255, 255, 255, 1);
+          --surface-active: rgba(242, 101, 34, 0.10);
+          --surface-control: rgba(9, 42, 62, 0.055);
+          --text-primary: rgba(8, 35, 52, 0.94);
+          --text-secondary: rgba(8, 35, 52, 0.68);
+          --text-tertiary: rgba(8, 35, 52, 0.48);
+          --border-subtle: rgba(8, 35, 52, 0.08);
+          --border-default: rgba(8, 35, 52, 0.12);
+          --border-emphasis: rgba(8, 35, 52, 0.18);
+          --icon-muted: rgba(8, 35, 52, 0.56);
+          --track: rgba(8, 35, 52, 0.08);
+          --timeline-off: rgba(8, 35, 52, 0.14);
+          --grid-line: rgba(8, 35, 52, 0.08);
+          --header: rgba(255, 255, 255, 0.84);
+          --overlay: rgba(12, 31, 43, 0.42);
+          --modal: #ffffff;
+          --shadow: rgba(20, 48, 65, 0.10);
+          --shadow-strong: rgba(20, 48, 65, 0.24);
+          background:
+            radial-gradient(circle at 10% 4%, rgba(242, 101, 34, 0.13), transparent 34%),
+            radial-gradient(circle at 88% 0%, rgba(11, 43, 64, 0.08), transparent 30%),
+            linear-gradient(155deg, var(--background-deep), var(--background-secondary) 60%, var(--background));
+        }
+
+        * { box-sizing: border-box; }
+        button, code { font: inherit; }
+        button { color: inherit; }
+        button:focus-visible { outline: 3px solid rgba(56, 189, 248, 0.65); outline-offset: 2px; }
+        button:disabled { cursor: not-allowed; opacity: 0.48; }
+
+        .app-shell { min-height: 100vh; }
+        .topbar {
+          position: sticky;
+          top: 0;
+          z-index: 20;
+          min-height: 64px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 10px clamp(16px, 2.4vw, 30px);
+          border-bottom: 1px solid var(--border-subtle);
+          background: var(--header);
+          backdrop-filter: blur(18px);
+          -webkit-backdrop-filter: blur(18px);
+        }
+        .topbar-start { min-width: 0; display: flex; align-items: center; gap: 10px; }
+        .brand { min-width: 0; display: flex; align-items: center; gap: 13px; }
+        .logo-frame {
+          flex: 0 0 auto;
+          width: 120px;
+          height: 42px;
+          padding: 4px 6px;
+          display: grid;
+          place-items: center;
+          overflow: hidden;
+          border: 1px solid rgba(255,255,255,.12);
+          border-radius: 14px;
+          background: rgba(255,255,255,.04);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          transition: background var(--motion), border-color var(--motion);
+        }
+        .brand-logo, .logo-frame img {
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: contain;
+          filter: brightness(0) invert(1);
+          mix-blend-mode: screen;
+          transition: filter var(--motion);
+        }
+        :host([data-theme="light"]) .logo-frame {
+          background: rgba(8, 35, 52, 0.05);
+          border-color: rgba(8, 35, 52, 0.12);
+        }
+        :host([data-theme="light"]) .brand-logo,
+        :host([data-theme="light"]) .logo-frame img {
+          filter: none;
+          mix-blend-mode: multiply;
+        }
+        .brand-copy { min-width: 0; }
+        .brand-copy strong { display: block; font-family: Outfit, Inter, Arial, sans-serif; font-size: 16px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .brand-copy small { display: block; margin-top: 2px; color: var(--text-secondary); font-size: 11px; font-weight: 650; }
+        .topbar-meta { display: flex; align-items: center; justify-content: flex-end; margin-left: auto; }
+        .menu-button,
+        .theme-button {
+          width: 42px;
+          height: 42px;
+          flex: 0 0 42px;
+          display: grid;
+          place-items: center;
+          border: 1px solid var(--border-default);
+          border-radius: 50%;
+          background: var(--surface-control);
+          cursor: pointer;
+          transition: transform var(--motion), background var(--motion), border-color var(--motion);
+        }
+        .menu-button:hover,
+        .theme-button:hover { background: var(--surface-hover); border-color: var(--primary-border); }
+        .menu-icon, .theme-icon { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+        .menu-icon { width: 22px; height: 22px; stroke-width: 2; }
+        .theme-icon-sun, .theme-icon-moon { transform-origin: center; transition: opacity 220ms, transform 220ms; }
+        .theme-icon-sun { opacity: 0; transform: rotate(-50deg) scale(0.65); }
+        .theme-icon-moon { opacity: 1; transform: rotate(0) scale(1); }
+        :host([data-theme="light"]) .theme-icon-sun { opacity: 1; transform: rotate(0) scale(1); }
+        :host([data-theme="light"]) .theme-icon-moon { opacity: 0; transform: rotate(45deg) scale(0.65); }
+
+        .dashboard { width: min(1460px, 100%); margin: 0 auto; padding: clamp(14px, 2vw, 24px); }
+        .surface {
+          min-width: 0;
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-lg);
+          background: var(--surface);
+          box-shadow: 0 14px 36px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.025);
+          backdrop-filter: blur(18px);
+          -webkit-backdrop-filter: blur(18px);
+          overflow: hidden;
+        }
+        .overview-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+        .hero-card {
+          min-height: 112px;
+          padding: 18px 20px;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 18px;
+          align-items: center;
+          background:
+            radial-gradient(circle at 95% 18%, rgba(242,101,34,.15), transparent 35%),
+            linear-gradient(135deg, var(--surface-strong), transparent 75%);
+        }
+        .hero-copy { min-width: 0; align-self: center; }
+        .hero-heading-row {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 18px;
+        }
+        .hero-heading-row h1 { min-width: 0; }
+        .hero-clock {
+          flex: 0 0 auto;
+          display: inline-flex;
+          align-items: baseline;
+          gap: 6px;
+          color: var(--text-primary);
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+        }
+        .hero-clock strong {
+          font: 800 clamp(27px, 3vw, 36px)/1 Outfit, Inter, sans-serif;
+          letter-spacing: -.04em;
+        }
+        .hero-clock span {
+          color: var(--text-secondary);
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: .08em;
+        }
+        .eyebrow {
+          width: fit-content;
+          display: inline-flex;
+          align-items: center;
+          min-height: 22px;
+          margin: 0 0 4px;
+          padding: 0 10px;
+          border: 1px solid rgba(242,101,34,.20);
+          border-radius: var(--radius-pill);
+          background: var(--primary-soft);
+          color: var(--primary);
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: .12em;
+          text-transform: uppercase;
+        }
+        h1, h2, p { margin-top: 0; }
+        .hero-card h1 { margin: 0; font-family: Outfit, Inter, Arial, sans-serif; font-size: clamp(24px, 3vw, 36px); font-weight: 800; line-height: 1.08; letter-spacing: -.035em; }
+        .hero-card h1 span { color: var(--primary); }
+        .hero-card p { max-width: 640px; margin: 10px 0 0; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+        .hero-weather { min-width: 0; padding-left: 18px; border-left: 1px solid var(--border-subtle); }
+        .hero-weather-main { display: grid; grid-template-columns: 42px minmax(0,1fr) auto; gap: 10px; align-items: center; }
+        .hero-weather-symbol { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; background: var(--primary-soft); color: var(--primary); font-size: 22px; }
+        .hero-weather-copy strong, .hero-weather-copy small { display: block; }
+        .hero-weather-copy strong { font: 800 16px/1.1 Outfit, Inter, sans-serif; }
+        .hero-weather-copy small { margin-top: 4px; color: var(--text-secondary); font-size: 9px; line-height: 1.35; }
+        .hero-temperature { font: 800 clamp(25px, 3vw, 34px)/1 Outfit, Inter, sans-serif; white-space: nowrap; }
+        .hero-forecast { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 6px; margin-top: 11px; }
+        .hero-forecast .forecast-item { min-height: 44px; }
+
+        .weather-card { min-height: 194px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; }
+        .weather-main { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 13px; align-items: center; }
+        .weather-symbol { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; background: var(--primary-soft); color: var(--primary); font-size: 25px; }
+        .weather-copy h2 { margin: 7px 0 4px; font: 800 20px/1.1 Outfit, Inter, sans-serif; }
+        .weather-copy p { margin: 0; color: var(--text-secondary); font-size: 10px; line-height: 1.4; }
+        .temperature { font: 800 clamp(24px, 3vw, 34px)/1 Outfit, Inter, sans-serif; white-space: nowrap; }
+        .forecast-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 12px; }
+        .forecast-item { min-height: 50px; padding: 7px; display: grid; grid-template-columns: 1fr auto; gap: 3px 6px; align-items: center; border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--surface-control); }
+        .forecast-item span { color: var(--text-tertiary); font-size: 9px; font-weight: 800; text-transform: capitalize; }
+        .forecast-item b { grid-row: 1 / span 2; grid-column: 2; color: var(--primary); font-size: 15px; }
+        .forecast-item strong { font-size: 11px; }
+        .forecast-empty { color: var(--text-tertiary); font-size: 10px; }
+
+        .primary-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px; margin-top: 14px; align-items: start; }
+        .media-card { grid-column: 1 / -1; padding: 16px; }
+        /* Los grupos detallados no comparten fila: cada uno usa todo el ancho disponible. */
+        .control-section.spots-section,
+        .control-section.samples-section { grid-column: 1 / -1; }
+        .scenes-card { grid-column: 1 / -1; padding: 16px; }
+        .presentation-scenes-card .scene-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .sample-scenes-card .scene-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .general-card { grid-column: 1 / -1; padding: 16px; }
+        .system-card { grid-column: span 4; padding: 16px; }
+        .activity-card { grid-column: span 8; padding: 16px; }
+        .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .compact-heading { margin-bottom: 11px; }
+        .section-heading h2 { margin: 6px 0 0; font: 800 18px/1.05 Outfit, Inter, sans-serif; letter-spacing: -.02em; }
+        .control-section { padding: 16px; }
+        .device-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        .spots-section .device-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .samples-section .device-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+        .device {
+          min-width: 0;
+          min-height: 58px;
+          padding: 8px 9px;
+          display: grid;
+          grid-template-columns: 34px minmax(0, 1fr) 30px;
+          gap: 8px;
+          align-items: center;
+          border: 1px solid var(--border-default);
+          border-radius: 14px;
+          background: var(--surface-control);
+          text-align: left;
+          cursor: pointer;
+          transition: transform var(--motion), background var(--motion), border-color var(--motion), box-shadow var(--motion);
+        }
+        .device:hover:not(:disabled) { border-color: var(--primary-border); background: var(--surface-hover); }
+        .device.is-on { border-color: var(--primary-border); background: var(--surface-active); box-shadow: 0 0 20px rgba(242,101,34,.07); }
+        .device.is-error { border-color: rgba(239,68,68,.45); }
+        .device.is-pending { animation: pulse 1.1s ease-in-out infinite alternate; }
+        .device-icon, .scene-icon, .system-icon, .media-art, .general-action > span {
+          display: grid;
+          place-items: center;
+          color: var(--icon-muted);
+        }
+        .device-icon { width: 34px; height: 34px; border-radius: 11px; background: var(--track); }
+        .device.is-on .device-icon { color: var(--primary); background: var(--primary-soft); }
+        .icon { width: 19px; height: 19px; fill: currentColor; }
+        .device-copy { min-width: 0; }
+        .device-copy strong, .device-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .device-copy strong { font-size: 11px; font-weight: 800; }
+        .device-copy small { margin-top: 3px; color: var(--text-secondary); font-size: 9px; font-weight: 650; }
+        .device.is-on .device-copy small { color: var(--primary); }
+        .device-switch { width: 29px; height: 17px; padding: 2px; display: flex; align-items: center; border: 1px solid var(--border-default); border-radius: 999px; background: var(--track); }
+        .device-switch i { width: 11px; height: 11px; border-radius: 50%; background: var(--icon-muted); transition: transform var(--motion), background var(--motion); }
+        .device.is-on .device-switch { border-color: var(--primary-border); background: var(--primary-medium); }
+        .device.is-on .device-switch i { transform: translateX(12px); background: var(--primary); }
+
+        .media-body { min-height: 78px; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; align-items: center; }
+        .media-art { width: 56px; height: 56px; border-radius: 16px; background: linear-gradient(145deg, var(--primary-medium), var(--surface-control)); color: var(--primary); }
+        .media-art .icon { width: 25px; height: 25px; }
+        .media-copy { min-width: 0; }
+        .media-copy strong, .media-copy span, .media-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .media-copy strong { font-size: 13px; }
+        .media-copy span { margin-top: 4px; color: var(--text-secondary); font-size: 10px; }
+        .media-copy small { margin-top: 7px; color: var(--text-tertiary); font-size: 9px; font-weight: 700; }
+        .media-state { padding: 5px 8px; border: 1px solid var(--border-default); border-radius: var(--radius-pill); color: var(--text-secondary); font-size: 9px; font-weight: 800; }
+        .media-state.is-playing { color: var(--success); border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.08); }
+        .media-controls { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; margin-top: 10px; }
+        .media-button { min-height: 40px; display: grid; place-items: center; border: 1px solid var(--border-default); border-radius: 12px; background: var(--surface-control); cursor: pointer; }
+        .media-button:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--primary-border); }
+        .media-button.primary { color: white; background: var(--primary); border-color: transparent; box-shadow: 0 6px 20px var(--primary-glow); }
+
+        .scenes-heading { align-items: center; }
+        .scene-heading-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+        .scene-summary { min-height: 28px; padding: 0 10px; display: inline-flex; align-items: center; border: 1px solid var(--border-default); border-radius: var(--radius-pill); background: var(--surface-control); color: var(--text-secondary); font-size: 9px; font-weight: 800; }
+        .scene-summary.is-active { border-color: var(--primary-border); background: var(--primary-soft); color: var(--primary); }
+        .clear-scene-button { min-height: 36px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--border-default); border-radius: var(--radius-pill); background: var(--surface-control); color: var(--text-primary); font: inherit; cursor: pointer; transition: transform var(--motion), background var(--motion), border-color var(--motion), color var(--motion); }
+        .clear-scene-button:hover:not(:disabled) { border-color: rgba(239,68,68,.32); background: rgba(239,68,68,.07); color: var(--error); }
+        .clear-scene-button:active:not(:disabled) { transform: scale(.98); }
+        .clear-scene-button:disabled { cursor: not-allowed; opacity: .46; }
+        .clear-scene-button span { width: 20px; height: 20px; display: grid; place-items: center; }
+        .clear-scene-button .icon { width: 15px; height: 15px; }
+        .clear-scene-button strong { font-size: 9px; font-weight: 800; white-space: nowrap; }
+        .scene-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+        .scene { position: relative; min-height: 70px; padding: 9px 10px; display: grid; grid-template-columns: 38px minmax(0,1fr) auto; gap: 9px; align-items: center; overflow: hidden; border: 1px solid var(--border-default); border-radius: 14px; background: var(--surface-control); text-align: left; cursor: pointer; transition: transform var(--motion), background var(--motion), border-color var(--motion), box-shadow var(--motion); }
+        .scene:hover:not(:disabled) { border-color: var(--primary-border); background: var(--surface-hover); }
+        .scene.is-pending { border-color: var(--primary-border); background: var(--surface-active); animation: pulse 1.1s ease-in-out infinite alternate; }
+        .scene.is-active { border-color: rgba(242,101,34,.56); background: var(--surface-active); box-shadow: 0 0 24px rgba(242,101,34,.10); }
+        .scene.is-unavailable { opacity: .65; }
+        .scene-icon { width: 38px; height: 38px; border-radius: 12px; background: var(--track); color: var(--icon-muted); }
+        .scene.is-active .scene-icon, .scene.is-pending .scene-icon { background: var(--primary-soft); color: var(--primary); }
+        .scene-copy { min-width: 0; }
+        .scene strong, .scene small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .scene strong { font-size: 11px; }
+        .scene small { margin-top: 3px; color: var(--text-secondary); font-size: 9px; }
+        .scene-state { min-height: 24px; padding: 0 8px; display: inline-flex; align-items: center; border: 1px solid var(--border-default); border-radius: var(--radius-pill); color: var(--text-tertiary); font-size: 8px; font-weight: 800; white-space: nowrap; }
+        .scene.is-active .scene-state { border-color: var(--primary-border); background: var(--primary-soft); color: var(--primary); }
+
+        .general-actions { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+        .general-action { min-height: 54px; padding: 8px 10px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--border-default); border-radius: 14px; background: var(--surface-control); cursor: pointer; }
+        .general-action > span { width: 31px; height: 31px; border-radius: 10px; }
+        .general-action strong { font-size: 10px; }
+        .general-action.power-on > span { color: var(--success); background: rgba(34,197,94,.09); }
+        .general-action.power-off > span { color: var(--error); background: rgba(239,68,68,.09); }
+        .general-action:hover:not(:disabled) { background: var(--surface-hover); }
+        .isolated-control { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-subtle); }
+        .isolated-label { display: block; margin-bottom: 6px; color: var(--text-tertiary); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+        .isolated-control .device { width: 100%; }
+
+        .energy-shell { grid-column: span 8; padding: 16px; }
+        .energy-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+        .energy-heading { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .energy-heading-icon { width: 38px; height: 38px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 12px; background: var(--primary-soft); color: var(--primary); }
+        .energy-heading-icon .icon { width: 20px; height: 20px; }
+        .energy-heading h2 { margin: 5px 0 0; font: 800 18px/1.05 Outfit, Inter, sans-serif; letter-spacing: -.02em; }
+        .energy-current { min-width: 176px; padding: 10px 12px; border: 1px solid var(--border-default); border-radius: 14px; background: var(--surface-control); text-align: right; }
+        .energy-current small, .energy-current strong, .energy-current span { display: block; }
+        .energy-current small { color: var(--text-tertiary); font-size: 8px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+        .energy-current strong { margin-top: 4px; font: 800 19px/1 Outfit, Inter, sans-serif; }
+        .energy-current span { margin-top: 4px; color: var(--text-tertiary); font-size: 8px; text-transform: capitalize; }
+        .energy-toolbar { margin-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .energy-tabs { display: inline-flex; padding: 3px; border: 1px solid var(--border-default); border-radius: 12px; background: var(--surface-control); }
+        .energy-tab { min-width: 58px; height: 30px; padding: 0 10px; border: 0; border-radius: 9px; background: transparent; color: var(--text-secondary); cursor: pointer; font: inherit; font-size: 9px; font-weight: 800; }
+        .energy-tab.is-active { background: var(--primary); color: white; box-shadow: 0 6px 16px var(--primary-glow); }
+        .energy-toolbar-actions { display: flex; align-items: center; gap: 8px; }
+        .energy-day-nav { display: inline-flex; align-items: center; gap: 4px; padding: 3px; border: 1px solid var(--border-default); border-radius: 12px; background: var(--surface-control); }
+        .energy-day-nav button { height: 30px; border: 0; border-radius: 9px; background: transparent; color: var(--text-secondary); cursor: pointer; font: inherit; font-size: 9px; font-weight: 800; }
+        .energy-day-nav button:hover:not(:disabled) { color: var(--text-primary); background: var(--surface-hover); }
+        .energy-day-nav button:disabled { opacity: .35; cursor: default; }
+        .energy-day-step { width: 30px; font-size: 16px !important; line-height: 1; }
+        .energy-day-current { min-width: 58px; padding: 0 9px; color: var(--primary) !important; }
+        .energy-summary { margin-top: 11px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
+        .energy-stat { min-width: 0; padding: 11px 12px; border: 1px solid var(--border-default); border-radius: 14px; background: var(--surface-control); }
+        .energy-stat small { display: block; color: var(--text-tertiary); font-size: 8px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+        .energy-stat strong { display: block; margin-top: 5px; font: 800 17px/1 Outfit, Inter, sans-serif; }
+        .energy-stat span { display: block; margin-top: 4px; color: var(--text-tertiary); font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .energy-note { margin-top: 9px; padding: 8px 10px; border: 1px solid var(--border-subtle); border-radius: 11px; color: var(--text-tertiary); background: var(--surface-control); font-size: 8px; line-height: 1.45; }
+        .energy-chart-card { margin-top: 9px; padding: 12px 10px 7px; border: 1px solid var(--border-default); border-radius: 15px; background: var(--surface-control); }
+        .energy-chart-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 3px 8px; }
+        .energy-chart-title strong { font-size: 10px; }
+        .energy-chart-title span { color: var(--text-tertiary); font-size: 8px; text-transform: capitalize; }
+        .energy-chart-layout { width: 100%; display: flex; min-width: 0; align-items: stretch; }
+        .energy-y-axis { position: relative; z-index: 2; flex: 0 0 52px; height: 300px; border-right: 1px solid var(--border-subtle); background: var(--surface-control); }
+        .energy-y-unit { position: absolute; top: 2px; left: 5px; color: var(--text-tertiary); font-size: 8px; font-weight: 900; letter-spacing: .04em; }
+        .energy-y-tick { position: absolute; right: 7px; transform: translateY(-50%); color: var(--text-tertiary); font-size: 9px; font-weight: 700; white-space: nowrap; }
+        .energy-chart-wrap { min-width: 0; flex: 1 1 auto; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: thin; scroll-behavior: smooth; }
+        .energy-chart { display: block; width: auto; min-width: 100%; height: 300px; overflow: visible; }
+        .energy-grid-line { stroke: var(--border-subtle); stroke-width: 1; }
+        .energy-axis-text { fill: var(--text-tertiary); font-family: Inter, sans-serif; font-size: 9px; font-weight: 700; }
+        .energy-current-label { fill: var(--primary); font-family: Inter, sans-serif; font-size: 8px; font-weight: 900; letter-spacing: .03em; text-transform: uppercase; }
+        .energy-bar { fill: var(--primary); opacity: .82; transition: opacity var(--motion), transform var(--motion); transform-box: fill-box; transform-origin: bottom; }
+        .energy-bar.is-partial { opacity: 1; stroke: var(--primary); stroke-width: 1.2; stroke-dasharray: 4 3; }
+        .energy-bar-group:hover .energy-bar { opacity: 1; }
+        .energy-empty { min-height: 240px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 24px; color: var(--text-tertiary); text-align: center; font-size: 10px; line-height: 1.5; }
+        .energy-empty.error { color: var(--error); }
+        .energy-empty .icon { width: 18px; height: 18px; }
+        .energy-spinner { width: 17px; height: 17px; border: 2px solid var(--border-default); border-top-color: var(--primary); border-radius: 50%; animation: energy-spin .8s linear infinite; }
+        @keyframes energy-spin { to { transform: rotate(360deg); } }
+        .icon-button { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--border-default); border-radius: 11px; background: var(--surface-control); cursor: pointer; }
+        .icon-button:hover { border-color: var(--primary-border); color: var(--primary); }
+        .inline-error { margin: 0 0 8px; padding: 8px; border: 1px solid rgba(239,68,68,.28); border-radius: 10px; background: rgba(239,68,68,.07); color: var(--error); font-size: 9px; }
+
+        .system-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+        .system-tile { min-height: 60px; padding: 9px; display: grid; grid-template-columns: 34px minmax(0,1fr); gap: 8px; align-items: center; border: 1px solid var(--border-default); border-radius: 14px; background: var(--surface-control); }
+        .system-icon { width: 34px; height: 34px; border-radius: 11px; background: var(--track); color: var(--icon-muted); }
+        .system-tile.good .system-icon { color: var(--success); background: rgba(34,197,94,.08); }
+        .system-tile.warning .system-icon { color: var(--warning); background: rgba(245,158,11,.09); }
+        .system-tile.danger .system-icon { color: var(--error); background: rgba(239,68,68,.08); }
+        .system-tile small, .system-tile strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .system-tile small { color: var(--text-secondary); font-size: 9px; font-weight: 700; }
+        .system-tile strong { margin-top: 4px; font-size: 11px; }
+        .system-tile-wide { grid-column: 1 / -1; }
+
+        .dialog-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; background: var(--overlay); backdrop-filter: blur(8px); }
+        .dialog-card { width: min(430px, 100%); padding: 24px; border: 1px solid var(--primary-border); border-radius: 24px; background: var(--modal); box-shadow: 0 24px 70px var(--shadow-strong); text-align: center; }
+        .dialog-icon { width: 54px; height: 54px; margin: 0 auto 12px; display: grid; place-items: center; border-radius: 50%; }
+        .dialog-icon.is-power-off { background: rgba(239,68,68,.09); color: var(--error); }
+        .dialog-icon.is-power-on { background: rgba(34,197,94,.10); color: var(--success); }
+        .dialog-icon .icon { width: 24px; height: 24px; }
+        .primary-button.confirm-on { background: var(--success); box-shadow: 0 8px 22px rgba(34,197,94,.18); }
+        .dialog-card h2 { margin: 10px 0 8px; font: 800 23px/1.1 Outfit, Inter, sans-serif; }
+        .dialog-card p { margin: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.55; }
+        .dialog-card code { color: var(--primary); font-size: 10px; overflow-wrap: anywhere; }
+        .dialog-actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; margin-top: 20px; }
+        .dialog-actions button { min-height: 48px; border-radius: var(--radius-pill); font-weight: 800; cursor: pointer; }
+        .secondary-button { border: 1px solid var(--border-default); background: var(--surface-control); }
+        .primary-button { border: 0; background: var(--primary); color: white; box-shadow: 0 8px 24px var(--primary-glow); }
+        .toast { position: fixed; right: 22px; bottom: 22px; z-index: 110; max-width: min(380px, calc(100vw - 32px)); padding: 12px 16px; border: 1px solid var(--border-default); border-radius: 14px; background: var(--modal); box-shadow: 0 18px 45px var(--shadow-strong); font-size: 11px; font-weight: 800; }
+        .toast.success { border-color: rgba(34,197,94,.34); }
+        .is-unavailable { opacity: .7; }
+
+        /* Estructura responsive equivalente a showroom-witronix.js.
+           Se aplican viewport y container queries porque la barra lateral de
+           Home Assistant puede reducir el panel sin cambiar el viewport. */
+        @media (max-width: 1180px) {
+          .presentation-scenes-card,
+          .sample-scenes-card,
+          .spots-section,
+          .samples-section,
+          .general-card,
+          .media-card { grid-column: 1 / -1; }
+          .presentation-scenes-card .scene-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .sample-scenes-card .scene-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+          .spots-section .device-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+          .samples-section .device-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+
+        @container showroom-panel (max-width: 1180px) {
+          .presentation-scenes-card,
+          .sample-scenes-card,
+          .spots-section,
+          .samples-section,
+          .general-card,
+          .media-card { grid-column: 1 / -1; }
+          .spots-section .device-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+          .samples-section .device-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+
+        @media (max-width: 960px) {
+          .spots-section .device-grid,
+          .samples-section .device-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        @container showroom-panel (max-width: 960px) {
+          .spots-section .device-grid,
+          .samples-section .device-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        @container showroom-panel (max-width: 768px) {
+          .dashboard { padding: 12px 10px; }
+          .hero-card { min-height: 0; padding: 16px 18px; grid-template-columns: 1fr !important; gap: 12px; }
+          .hero-copy { border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px; margin-bottom: 2px; }
+          .hero-card h1 { font-size: clamp(22px, 5.5vw, 30px); }
+          .hero-status { justify-content: space-between; width: 100%; align-items: center; flex-direction: row; gap: 12px; }
+          .hero-clock strong { font-size: 26px; }
+          .hero-weather { border-left: 0; padding-left: 0; border-top: 0 !important; }
+          .device-grid, .scene-grid, .system-grid { grid-template-columns: 1fr !important; }
+        }
+
+        @media (max-width: 768px) {
+          .dashboard { padding: 12px 10px; }
+          .hero-card { min-height: 0; padding: 16px 18px; grid-template-columns: 1fr !important; gap: 12px; }
+          .hero-copy { border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px; margin-bottom: 2px; }
+          .hero-card h1 { font-size: clamp(22px, 5.5vw, 30px); }
+          .hero-status { justify-content: space-between; width: 100%; align-items: center; flex-direction: row; gap: 12px; }
+          .hero-clock strong { font-size: 26px; }
+          .hero-weather { border-left: 0; padding-left: 0; border-top: 0 !important; }
+          .device-grid, .scene-grid, .system-grid { grid-template-columns: 1fr !important; }
+        }
+
+        @container showroom-panel (max-width: 520px) {
+          .general-actions { grid-template-columns: 1fr; }
+          .general-action { justify-content: flex-start; }
+          .media-card .section-heading { align-items: flex-start; flex-direction: column; }
+          .media-state { max-width: 100%; }
+        }
+
+        @media (max-width: 520px) {
+          .general-actions { grid-template-columns: 1fr; }
+          .general-action { justify-content: flex-start; }
+          .media-card .section-heading { align-items: flex-start; flex-direction: column; }
+          .media-state { max-width: 100%; }
+        }
+
+        @container showroom-panel (max-width: 768px) {
+          .system-card, .activity-card, .energy-shell { grid-column: 1 / -1; }
+          .energy-summary { grid-template-columns: repeat(2, minmax(0,1fr)); }
+          .energy-chart { min-width: 560px; }
+        }
+        @media (max-width: 768px) {
+          .system-card, .activity-card, .energy-shell { grid-column: 1 / -1; }
+          .energy-summary { grid-template-columns: repeat(2, minmax(0,1fr)); }
+          .energy-chart { min-width: 560px; }
+        }
+        @container showroom-panel (max-width: 520px) {
+          .energy-header { display: grid; grid-template-columns: 1fr; }
+          .energy-current { min-width: 0; width: 100%; text-align: left; }
+          .energy-toolbar { align-items: stretch; flex-direction: column; }
+          .energy-tabs { display: grid; grid-template-columns: repeat(3, 1fr); }
+          .energy-toolbar-actions { justify-content: space-between; }
+          .energy-summary { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 520px) {
+          .energy-header { display: grid; grid-template-columns: 1fr; }
+          .energy-current { min-width: 0; width: 100%; text-align: left; }
+          .energy-toolbar { align-items: stretch; flex-direction: column; }
+          .energy-tabs { display: grid; grid-template-columns: repeat(3, 1fr); }
+          .energy-toolbar-actions { justify-content: space-between; }
+          .energy-summary { grid-template-columns: 1fr; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition-duration: 0.01ms !important; }
+        }
+
+        @media (max-width: 760px), (prefers-reduced-transparency: reduce) {
+          .surface, .topbar { backdrop-filter: none; -webkit-backdrop-filter: none; }
+        }
+
+
+        /* Cabecera minimalista basada en oficinas-panel.js. */
+        .overview-grid {
+          margin-top: 12px;
+          gap: 0;
+        }
+        .hero-card {
+          min-height: 112px;
+          padding: 18px 20px;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          align-items: center;
+          gap: 22px;
+          background:
+            radial-gradient(circle at 92% 16%, rgba(242, 101, 34, 0.10), transparent 34%),
+            var(--surface);
+        }
+        .hero-copy {
+          min-width: 0;
+          align-self: auto;
+        }
+        .hero-card h1 {
+          margin: 0;
+          font-family: Outfit, Inter, Arial, sans-serif;
+          font-size: clamp(28px, 3vw, 38px);
+          font-weight: 800;
+          line-height: 1.04;
+          letter-spacing: -0.035em;
+        }
+        .hero-card h1 span { color: var(--primary); }
+        .hero-status {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 18px;
+        }
+        .hero-clock {
+          flex: 0 0 auto;
+          display: inline-flex;
+          align-items: baseline;
+          gap: 6px;
+          color: var(--text-primary);
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+        }
+        .hero-clock strong {
+          font-family: Outfit, Inter, Arial, sans-serif;
+          font-size: clamp(27px, 3vw, 34px);
+          font-weight: 800;
+          line-height: 1;
+          letter-spacing: -0.04em;
+        }
+        .hero-clock span {
+          color: var(--text-secondary);
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+        }
+        .hero-weather {
+          min-width: 128px;
+          padding-left: 18px;
+          display: grid;
+          grid-template-columns: 34px auto;
+          align-items: center;
+          gap: 9px;
+          border-left: 1px solid var(--border-default, var(--border-subtle));
+        }
+        .hero-weather-symbol {
+          width: 34px;
+          height: 34px;
+          display: grid;
+          place-items: center;
+          border-radius: 50%;
+          background: var(--primary-soft);
+          color: var(--primary);
+          font-size: 19px;
+        }
+        .hero-weather-copy { min-width: 0; }
+        .hero-weather-copy strong,
+        .hero-weather-copy small {
+          display: block;
+          white-space: nowrap;
+        }
+        .hero-weather-copy strong {
+          margin: 0;
+          font-family: Outfit, Inter, Arial, sans-serif;
+          font-size: 17px;
+          font-weight: 800;
+          line-height: 1.05;
+        }
+        .hero-weather-copy small {
+          margin: 0 0 3px;
+          color: var(--text-secondary);
+          font-size: 9px;
+          font-weight: 700;
+          line-height: 1.1;
+        }
+
+        /* El bloque climático replica la cabecera de Oficinas: sin marco superior. */
+        .hero-weather {
+          border-top: 0 !important;
+        }
+
+        /* Ningún botón conserva la barra decorativa naranja superior. */
+        button::before,
+        .scene::before,
+        .scene.is-active::before {
+          display: none !important;
+          content: none !important;
+        }
+
+        @media (max-width: 680px) {
+          .hero-card {
+            min-height: 0;
+            padding: 16px;
+            grid-template-columns: 1fr;
+            gap: 14px;
+          }
+          .hero-status { justify-content: flex-start; }
+        }
+        @media (max-width: 520px) {
+          .hero-status {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 10px;
+          }
+          .hero-weather {
+            padding: 0;
+            border-left: 0;
+            border-top: 0 !important;
+          }
+        }
+      
+
+        /* Cabecera móvil unificada con el patrón visual de Oficinas.
+           A 430 px mantiene título, divisor y estado en una fila equilibrada. */
+        @media (max-width: 520px) {
+          .dashboard { padding: 12px 10px; }
+          .hero-card {
+            min-height: 0;
+            padding: 16px 18px;
+            grid-template-columns: 1fr !important;
+            align-items: center;
+            gap: 12px;
+          }
+          .hero-copy {
+            min-width: 0;
+            padding-bottom: 10px;
+            margin-bottom: 2px;
+            border-bottom: 1px solid var(--border-subtle);
+          }
+          .hero-card h1 {
+            margin: 0;
+            font-size: clamp(22px, 5.5vw, 30px);
+            line-height: 1.04;
+            letter-spacing: -0.035em;
+          }
+          .hero-card h1 span { white-space: nowrap; }
+          .hero-status {
+            width: 100%;
+            display: flex;
+            align-items: center !important;
+            justify-content: space-between !important;
+            flex-direction: row !important;
+            gap: 12px;
+            padding-top: 0;
+            border-top: 0;
+          }
+          .hero-clock {
+            flex: 0 0 auto;
+            margin: 0;
+          }
+          .hero-clock strong { font-size: 26px; }
+          .hero-weather {
+            min-width: 0;
+            padding: 0;
+            border-left: 0;
+            border-top: 0 !important;
+          }
+        }
+</style>
+
+      <div class="app-shell">
+        <header class="topbar">
+          <div class="topbar-start">
+            <button
+              class="menu-button"
+              data-action="toggle-menu"
+              aria-label="Abrir menú de navegación de Home Assistant"
+              title="Abrir menú"
+            >${MENU_ICON}</button>
+            <div class="brand">
+              <div class="logo-frame"><img src="${this._escape(config.logo)}" alt="Witmind"></div>
+            </div>
+          </div>
+          <div class="topbar-meta">
+            <button class="theme-button" data-action="toggle-theme" aria-label="Cambiar a tema ${nextTheme}" title="Cambiar a tema ${nextTheme}">${THEME_ICON}</button>
+          </div>
+        </header>
+
+        <main class="dashboard">
+          <section class="overview-grid">
+            <article class="surface hero-card">
+              <div class="hero-copy">
+                <h1>${this._escape(config.title)} <span>Witmind</span></h1>
+              </div>
+              <div class="hero-status">
+                <time class="hero-clock" data-current-time>
+                  <strong data-clock-time>--:--</strong>
+                  <span data-clock-period>--</span>
+                </time>
+                <div class="hero-weather" aria-label="Clima actual: ${this._escape(CONDITION_LABELS[condition] || condition || "Sin datos")}, ${this._escape(weatherAttrs.temperature ?? "—")}${this._escape(weatherAttrs.temperature_unit ?? "°")}">
+                  <span class="hero-weather-symbol" aria-hidden="true">${this._escape(CONDITION_SYMBOLS[condition] || "·")}</span>
+                  <span class="hero-weather-copy">
+                    <small>${this._escape(CONDITION_LABELS[condition] || condition || "Sin datos")}</small>
+                    <strong>${this._escape(weatherAttrs.temperature ?? "—")}${this._escape(weatherAttrs.temperature_unit ?? "°")}</strong>
+                  </span>
+                </div>
+              </div>
+            </article>
+          </section>
+
+          <section class="primary-grid">
+            ${this._renderScenes()}
+            <div class="control-section spots-section surface">
+              <div class="section-heading compact-heading"><div><span class="eyebrow">Iluminación</span><h2>Spots</h2></div></div>
+              <div class="device-grid">${config.spots.map((item) => this._renderDevice(item)).join("")}</div>
+            </div>
+            <div class="control-section samples-section surface">
+              <div class="section-heading compact-heading"><div><span class="eyebrow">Muestras</span><h2>Luminarias</h2></div></div>
+              <div class="device-grid">${config.samples.map((item) => this._renderDevice(item)).join("")}</div>
+            </div>
+            ${this._renderGeneralControl()}
+            ${this._renderMedia()}
+            ${this._renderSystem()}
+            ${this._renderActivity()}
+          </section>
+        </main>
+      </div>
+
+      ${this._renderConfirmDialog()}
+      ${this._toast ? `<div class="toast ${this._escape(this._toast.type)}" role="status">${this._escape(this._toast.message)}</div>` : ""}
+    `;
+
+    this._updateClock();
+    requestAnimationFrame(() => this._restoreEnergyChartScroll());
+  }
+}
+
+if (!customElements.get("showroom-panel")) {
+  customElements.define("showroom-panel", ShowroomPanel);
+}

@@ -1,0 +1,1012 @@
+- id: '1775513331773'
+  alias: Tinta Negra Noti Autom
+  description: ''
+  triggers:
+  - trigger: numeric_state
+    entity_id:
+    - sensor.epson_wf_c5890_series_black_ink
+    below: 20
+  conditions: []
+  actions:
+  - action: notify.mobile_app_mate_20_pruebas
+    metadata: {}
+    data:
+      message: '"Tinta Negra al 20% en Impresora C5890"'
+      title: 'Alerta de Impresora '
+  mode: single
+- id: '1775591976950'
+  alias: Impresion Finalizada prueba Fer
+  description: ''
+  triggers:
+  - trigger: numeric_state
+    entity_id:
+    - sensor.ender_3_v3_ke_print_progress
+    above: 98
+  conditions: []
+  actions:
+  - action: notify.mobile_app_fer_prueba_xiaomi
+    metadata: {}
+    data:
+      message: Impresion 3D Finalizada
+      title: Impresion terminada
+  mode: single
+- id: '1775592157327'
+  alias: impresion 3d finalizada prueba mate 20
+  description: ''
+  triggers:
+  - trigger: numeric_state
+    entity_id:
+    - sensor.ender_3_v3_ke_print_progress
+    above: 98
+  conditions: []
+  actions:
+  - action: notify.mobile_app_mate_20_pruebas
+    metadata: {}
+    data:
+      message: Impresion 3D Finalizada
+      title: Impresion 3D Finalizada
+  mode: single
+- id: '1775741599116'
+  alias: tinta cyan cf5890 autom
+  description: ''
+  triggers:
+  - trigger: numeric_state
+    entity_id:
+    - sensor.epson_wf_c5890_series_cyan_ink
+    below: 1
+  conditions: []
+  actions:
+  - action: notify.mobile_app_mate_20_pruebas
+    metadata: {}
+    data:
+      message: TINTA IMPRESORA
+      title: tinta cyan se ha agotado
+  mode: single
+- id: '1776089970911'
+  alias: Feedback Sonoff Taller a KNX
+  description: Envía el estado del switch.taller al bus KNX vía MQTT
+  triggers:
+  - entity_id: switch.taller
+    trigger: state
+  actions:
+  - action: mqtt.publish
+    data:
+      topic: knx/oficina/luz/1/state
+      payload: '{{ ''1'' if is_state(''switch.taller'', ''on'') else ''0'' }}'
+      retain: true
+  mode: single
+- id: '1776106177700'
+  alias: Comando KNX Z10 -> Sonoff Taller
+  description: Enciende o apaga el Sonoff cuando se pulsa la pantalla Z10
+  triggers:
+  - topic: knx/oficina/luz/1/set
+    trigger: mqtt
+  actions:
+  - action: "{% if trigger.payload == '1' %}\n  switch.turn_on\n{% else %}\n  switch.turn_off\n{%
+      endif %}\n"
+    target:
+      entity_id: switch.taller
+  mode: restart
+- id: '1781373601172'
+  alias: Showroom - Apagado automático 19:00
+  description: Apaga las luminarias del Showroom a las 7pm solo si alguna está encendida
+  triggers:
+  - trigger: time
+    at: '19:00:00'
+  conditions:
+  - condition: or
+    conditions:
+    - condition: state
+      entity_id: switch.sonoff_100109cc99_1
+      state: 'on'
+    - condition: state
+      entity_id: switch.sonoff_100109cc99_2
+      state: 'on'
+    - condition: state
+      entity_id: switch.sonoff_100109cc99_3
+      state: 'on'
+  actions:
+  - action: switch.turn_off
+    target:
+      entity_id:
+      - switch.sonoff_100109cc99_1
+      - switch.sonoff_100109cc99_2
+      - switch.sonoff_100109cc99_3
+  mode: single
+- id: '1781373854746'
+  alias: Apagado automatico lobby  21:00
+  description: Apaga las luminarias del Showroom a las 7pm solo si alguna está encendida
+  triggers:
+  - trigger: time
+    at: '21:00:00'
+  conditions:
+  - condition: or
+    conditions:
+    - condition: state
+      entity_id: switch.sonoff_100109ce87_1
+      state:
+      - 'on'
+    - condition: state
+      entity_id: switch.sonoff_100109ce87_2
+      state:
+      - 'on'
+    - condition: state
+      entity_id: switch.sonoff_100109ce87_3
+      state:
+      - 'on'
+  actions:
+  - action: switch.turn_off
+    target:
+      entity_id:
+      - switch.sonoff_100109ce87_1
+      - switch.sonoff_100109ce87_2
+      - switch.sonoff_100109ce87_3
+    data: {}
+  mode: single
+- id: '1781374074749'
+  alias: Apagado automatico pasillo y multifuncional
+  description: Apaga las luminarias del pasillo y multifuncional p2 a las 21:00pm
+  triggers:
+  - trigger: time
+    at: '21:00:00'
+  conditions:
+  - condition: or
+    conditions:
+    - condition: state
+      entity_id: switch.b2_gang_interruptor_1
+      state:
+      - 'on'
+    - condition: state
+      entity_id: switch.b2_gang_interruptor_2
+      state:
+      - 'on'
+  actions:
+  - action: switch.turn_off
+    target:
+      entity_id:
+      - switch.b2_gang_interruptor_1
+      - switch.b2_gang_interruptor_2
+    data: {}
+  mode: single
+- id: '1784066094741'
+  alias: Slims Panel Moes
+  description: ''
+  triggers:
+  - trigger: scene.activated
+    target:
+      device_id: 2e86f3b846b9e633948026f693d7d407
+    options: {}
+  conditions: []
+  actions:
+  - action: switch.toggle
+    metadata: {}
+    target:
+      entity_id: switch.sonoff_100109cc99_1
+    data: {}
+  mode: single
+- id: '1784066130843'
+  alias: Downlights pantalla moes
+  description: ''
+  triggers:
+  - trigger: scene.activated
+    target:
+      device_id:
+      - cd96c599076d2431b6a50d327d6d69a1
+    options: {}
+  conditions: []
+  actions:
+  - action: switch.toggle
+    metadata: {}
+    target:
+      entity_id:
+      - switch.sonoff_100109cc99_3
+    data: {}
+  mode: single
+- id: '1784066170473'
+  alias: Paneles 4k pantalla Moes
+  description: ''
+  triggers:
+  - trigger: scene.activated
+    target:
+      device_id:
+      - fbaf18b997dc44a14d1f8dcaf36748cf
+    options: {}
+  conditions: []
+  actions:
+  - action: switch.toggle
+    metadata: {}
+    target:
+      entity_id:
+      - switch.sonoff_100109cc99_2
+    data: {}
+  mode: single
+- id: '1784577262132'
+  alias: prueba rele zigbee
+  description: ''
+  triggers:
+  - trigger: scene.activated
+    target:
+      entity_id: scene.paneles_4k
+    options: {}
+  conditions: []
+  actions:
+  - action: switch.toggle
+    metadata: {}
+    target:
+      device_id: e5b0de6fd933bf759e148aeb21c34d7e
+    data: {}
+  mode: single
+- id: '1785523984354'
+  alias: MQTT Bridge - A5 Paneles y Reflector
+  triggers:
+  - entity_id:
+    - switch.smart_relay_switch_4_switch
+    - sensor.smart_relay_switch_4_current
+    - sensor.smart_relay_switch_4_power
+    - sensor.smart_relay_switch_4_voltage
+    - sensor.smart_relay_switch_4_total_energy
+    - switch.smart_relay_switch_3_switch
+    - sensor.smart_relay_switch_3_current
+    - sensor.smart_relay_switch_3_power
+    - sensor.smart_relay_switch_3_voltage
+    - sensor.smart_relay_switch_3_total_energy
+    trigger: state
+  - trigger: time_pattern
+    minutes: /1
+  actions:
+  - repeat:
+      for_each:
+      - switch.smart_relay_switch_4_switch
+      - sensor.smart_relay_switch_4_current
+      - sensor.smart_relay_switch_4_power
+      - sensor.smart_relay_switch_4_voltage
+      - sensor.smart_relay_switch_4_total_energy
+      - switch.smart_relay_switch_3_switch
+      - sensor.smart_relay_switch_3_current
+      - sensor.smart_relay_switch_3_power
+      - sensor.smart_relay_switch_3_voltage
+      - sensor.smart_relay_switch_3_total_energy
+      sequence:
+      - data:
+          topic: tuya/showroom/{{ repeat.item.split('.')[1] }}/state
+          payload: '{{ states(repeat.item) }}'
+          retain: true
+        action: mqtt.publish
+- id: 'taller_ciclo_10s'
+  alias: Taller ciclo 10s
+  description: >-
+    Enciende el circuito Taller durante 10 segundos y lo apaga durante los
+    siguientes 10 segundos. El ciclo inicia en los segundos 00, 20 y 40 de
+    cada minuto. Al deshabilitar la automatización desde el panel independiente,
+    el circuito se apaga inmediatamente.
+  triggers:
+  - trigger: time_pattern
+    seconds: /20
+  conditions:
+  - condition: state
+    entity_id: binary_sensor.bloqueo_automatizaciones_laborales
+    state: "off"
+  actions:
+  - action: switch.turn_on
+    target:
+      entity_id: switch.taller_interruptor_1
+  - delay: '00:00:10'
+  - action: switch.turn_off
+    target:
+      entity_id: switch.taller_interruptor_1
+  mode: single
+  max_exceeded: silent
+  trace:
+    stored_traces: 20
+
+- id: witmind_bloqueo_laboral_apagado_seguro
+  alias: "Witmind - Aplicar bloqueo laboral"
+  description: >-
+    Al entrar en bloqueo laboral (domingo, feriado o sábado desde las 13:00),
+    corta el ciclo automático del Taller y lleva la climatización automática a OFF.
+    La climatización en MANUAL conserva la autoridad del usuario.
+  triggers:
+    - trigger: state
+      entity_id: binary_sensor.bloqueo_automatizaciones_laborales
+      to: "on"
+  conditions: []
+  actions:
+    - action: switch.turn_off
+      target:
+        entity_id: switch.taller_interruptor_1
+    - if:
+        - condition: template
+          value_template: >-
+            {{ states('input_select.climatizacion_control_mode') in ['auto','recovery'] }}
+        - condition: template
+          value_template: >-
+            {{ states('climate.aire_acondicionado_iris') not in ['unknown','unavailable','none','None',''] and
+               states('climate.aire_acondicionado_midea') not in ['unknown','unavailable','none','None',''] }}
+      then:
+        - action: input_boolean.turn_off
+          target:
+            entity_id:
+              - input_boolean.climatizacion_demanda_calor
+              - input_boolean.climatizacion_demanda_frio
+        - action: script.climatizacion_apagar
+          data:
+            source: auto
+            force: true
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.climatizacion_ultimo_evento
+          data:
+            value: >-
+              Bloqueo laboral aplicado · {{ state_attr('binary_sensor.bloqueo_automatizaciones_laborales', 'motivo') or 'fuera de jornada' }}
+  mode: restart
+  trace:
+    stored_traces: 20
+
+# -----------------------------------------------------------------------------
+# WITMIND — CONTROL MÓVIL POR NOTIFICACIÓN PERMANENTE
+# Control dirigido exclusivamente al dispositivo M2102J20SG mediante los scripts asociados.
+# Mantiene la prueba limitada al Pasillo.
+# -----------------------------------------------------------------------------
+- id: witmind_apagado_notificacion_estado
+  alias: "Witmind - Mantener notificación de apagado protegido"
+  description: >-
+    Publica la notificación al iniciar Home Assistant, al cambiar el estado de
+    la barrera y cada 30 minutos para recuperarla si Android la elimina.
+  triggers:
+    - trigger: homeassistant
+      event: start
+      id: inicio
+    - trigger: state
+      entity_id: timer.ventana_apagado_total
+      to: active
+      id: armado
+    - trigger: state
+      entity_id: timer.ventana_apagado_total
+      to: idle
+      id: bloqueado
+    - trigger: state
+      entity_id: timer.ventana_apagado_total
+      to: paused
+      id: pausado
+    - trigger: time_pattern
+      minutes: "/30"
+      id: mantenimiento
+  conditions: []
+  actions:
+    - if:
+        - condition: template
+          value_template: "{{ trigger.id == 'inicio' }}"
+      then:
+        - delay: "00:00:10"
+    - action: script.actualizar_notificacion_apagado_protegido
+  mode: restart
+  max_exceeded: silent
+
+- id: witmind_apagado_notificacion_acciones
+  alias: "Witmind - Procesar botones de apagado protegido"
+  description: >-
+    Procesa Preparar, Confirmar y Cancelar desde la notificación Android. La
+    validación definitiva continúa dentro de script.apagado_total_witmind.
+  triggers:
+    - trigger: event
+      event_type: mobile_app_notification_action
+      event_data:
+        action: WITMIND_PREPARAR_APAGADO
+        tag: witmind_apagado_protegido
+      id: preparar
+    - trigger: event
+      event_type: mobile_app_notification_action
+      event_data:
+        action: WITMIND_CONFIRMAR_APAGADO
+        tag: witmind_apagado_protegido
+      id: confirmar
+    - trigger: event
+      event_type: mobile_app_notification_action
+      event_data:
+        action: WITMIND_CANCELAR_APAGADO
+        tag: witmind_apagado_protegido
+      id: cancelar
+  conditions: []
+  actions:
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.id == 'preparar' }}"
+          sequence:
+            - action: script.preparar_apagado_total
+
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.id == 'cancelar' }}"
+          sequence:
+            - action: timer.cancel
+              target:
+                entity_id: timer.ventana_apagado_total
+            - action: script.actualizar_notificacion_apagado_protegido
+
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.id == 'confirmar' }}"
+          sequence:
+            - if:
+                - condition: state
+                  entity_id: timer.ventana_apagado_total
+                  state: active
+              then:
+                - action: script.apagado_total_witmind
+                  continue_on_error: true
+                - delay: "00:00:01"
+                - if:
+                    - condition: state
+                      entity_id: switch.b2_gang_interruptor_2
+                      state: "off"
+                  then:
+                    - action: script.notificar_resultado_apagado_protegido
+                      data:
+                        resultado: correcto
+                  else:
+                    - action: script.notificar_resultado_apagado_protegido
+                      data:
+                        resultado: fallo
+              else:
+                - action: script.notificar_resultado_apagado_protegido
+                  data:
+                    resultado: rechazado
+                - action: script.actualizar_notificacion_apagado_protegido
+  mode: queued
+  max: 10
+  max_exceeded: warning
+
+
+# -----------------------------------------------------------------------------
+# WITMIND — CLIMATIZACIÓN AUTO / MANUAL / RECOVERY / FAULT
+# Sensor: Oficina general -> sensor.t_h_sensor_2_temperature -> sensor virtual.
+# MASTER POWER: su telemetría NO bloquea IR; solo OFF→ON explícito resincroniza.
+# IRIS + MIDEA siempre se tratan como una única unidad lógica.
+# -----------------------------------------------------------------------------
+- id: witmind_climatizacion_inicializar_config
+  alias: "Witmind - Inicializar configuración de climatización"
+  description: >-
+    Carga una sola vez los valores iniciales persistentes. No restaura estado
+    operativo de sesión ni autoridad MANUAL.
+  triggers:
+    - trigger: homeassistant
+      event: start
+  conditions:
+    - condition: state
+      entity_id: input_boolean.climatizacion_config_inicializada
+      state: "off"
+  actions:
+    - delay: "00:00:02"
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.climatizacion_manana_inicio
+      data:
+        time: "08:00:00"
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.climatizacion_manana_fin
+      data:
+        time: "12:00:00"
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.climatizacion_tarde_inicio
+      data:
+        time: "13:00:00"
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.climatizacion_tarde_fin
+      data:
+        time: "17:00:00"
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.climatizacion_manana_apagar_en
+      data:
+        value: 23
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.climatizacion_manana_encender_en
+      data:
+        value: 20
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.climatizacion_tarde_encender_en
+      data:
+        value: 24
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.climatizacion_tarde_apagar_en
+      data:
+        value: 21
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.climatizacion_manana_temperatura_objetivo
+      data:
+        value: 23
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.climatizacion_tarde_temperatura_objetivo
+      data:
+        value: 21
+    - action: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.climatizacion_objetivos_config_inicializada
+    - action: input_boolean.turn_on
+      target:
+        entity_id:
+          - input_boolean.climatizacion_manana_activa
+          - input_boolean.climatizacion_tarde_activa
+    - action: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.climatizacion_config_inicializada
+  mode: single
+  max_exceeded: silent
+
+# Migración de una sola vez para instalaciones que ya tenían la climatización
+# inicializada antes de existir los dos objetivos persistentes por perfil.
+- id: witmind_climatizacion_inicializar_objetivos_perfil
+  alias: "Witmind - Inicializar objetivos térmicos por perfil"
+  description: >-
+    En la primera carga copia el umbral de apagado actual a la consigna enviada.
+    Después marca la migración como completa y no vuelve a sobrescribir elecciones.
+  triggers:
+    - trigger: homeassistant
+      event: start
+  conditions:
+    - condition: template
+      value_template: "{{ not is_state('input_boolean.climatizacion_objetivos_config_inicializada', 'on') }}"
+  actions:
+    - delay: "00:00:03"
+    - condition: template
+      value_template: "{{ not is_state('input_boolean.climatizacion_objetivos_config_inicializada', 'on') }}"
+    - variables:
+        morning_off: "{{ states('input_number.climatizacion_manana_apagar_en') | float(23) }}"
+        afternoon_off: "{{ states('input_number.climatizacion_tarde_apagar_en') | float(21) }}"
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.climatizacion_manana_temperatura_objetivo
+      data:
+        value: "{{ morning_off | round(0, 'ceil') }}"
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.climatizacion_tarde_temperatura_objetivo
+      data:
+        value: "{{ afternoon_off | round(0, 'floor') }}"
+    - action: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.climatizacion_objetivos_config_inicializada
+  mode: single
+  max_exceeded: silent
+
+# Mantiene los helpers persistentes dentro de la única regla necesaria. Si un
+# valor se cambia desde Herramientas de desarrollador, móvil o cualquier panel,
+# Home Assistant lo normaliza sin depender del navegador de climatización.
+- id: witmind_climatizacion_normalizar_objetivos_perfil
+  alias: "Witmind - Normalizar objetivos térmicos por perfil"
+  description: >-
+    HEAT nunca manda menos que su apagado; COOL nunca manda más. Los objetivos
+    siguen siendo libres en la dirección útil y se conservan entre reinicios.
+  triggers:
+    - trigger: state
+      entity_id:
+        - input_number.climatizacion_manana_apagar_en
+        - input_number.climatizacion_manana_temperatura_objetivo
+        - input_number.climatizacion_tarde_apagar_en
+        - input_number.climatizacion_tarde_temperatura_objetivo
+  conditions:
+    - condition: state
+      entity_id: input_boolean.climatizacion_objetivos_config_inicializada
+      state: "on"
+  actions:
+    - variables:
+        morning_off: "{{ states('input_number.climatizacion_manana_apagar_en') | float(23) }}"
+        morning_target: "{{ states('input_number.climatizacion_manana_temperatura_objetivo') | float(23) }}"
+        afternoon_off: "{{ states('input_number.climatizacion_tarde_apagar_en') | float(21) }}"
+        afternoon_target: "{{ states('input_number.climatizacion_tarde_temperatura_objetivo') | float(21) }}"
+        morning_safe: "{{ ([morning_target | float, morning_off | float] | max) | round(0, 'ceil') }}"
+        afternoon_safe: "{{ ([afternoon_target | float, afternoon_off | float] | min) | round(0, 'floor') }}"
+    - if:
+        - condition: template
+          value_template: "{{ (morning_target | float) != (morning_safe | float) }}"
+      then:
+        - action: input_number.set_value
+          target:
+            entity_id: input_number.climatizacion_manana_temperatura_objetivo
+          data:
+            value: "{{ morning_safe }}"
+    - if:
+        - condition: template
+          value_template: "{{ (afternoon_target | float) != (afternoon_safe | float) }}"
+      then:
+        - action: input_number.set_value
+          target:
+            entity_id: input_number.climatizacion_tarde_temperatura_objetivo
+          data:
+            value: "{{ afternoon_safe }}"
+  mode: queued
+  max: 10
+  max_exceeded: silent
+
+- id: witmind_climatizacion_recuperacion_arranque
+  alias: "Witmind - Recuperación de climatización"
+  description: >-
+    Invalida inmediatamente la memoria operativa de la sesión al arrancar y
+    establece RECOVERY. La fase térmica diaria persistente no se borra: después
+    de validar el subsistema, RECOVERY reconstruye la demanda desde esa memoria.
+  triggers:
+    - trigger: homeassistant
+      event: start
+      id: startup
+    - trigger: state
+      entity_id: input_boolean.climatizacion_config_inicializada
+      to: "on"
+      id: first_configuration
+  actions:
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.climatizacion_control_mode
+      data:
+        option: recovery
+    - action: input_boolean.turn_off
+      target:
+        entity_id:
+          - input_boolean.climatizacion_sincronizado_sesion
+          - input_boolean.climatizacion_demanda_calor
+          - input_boolean.climatizacion_demanda_frio
+    - delay: "00:00:02"
+    - if:
+        - condition: state
+          entity_id: input_boolean.climatizacion_config_inicializada
+          state: "on"
+      then:
+        - action: script.climatizacion_recuperar
+  mode: restart
+  trace:
+    stored_traces: 20
+
+- id: witmind_climatizacion_master_power
+  alias: "Witmind - Climatización MASTER POWER"
+  description: >-
+    La telemetría del relé no autoriza ni bloquea órdenes IR. UNKNOWN/UNAVAILABLE
+    se ignoran. Solo un OFF→ON explícito provoca una retransmisión única del
+    último estado HVAC comandado, para cubrir órdenes emitidas sin alimentación.
+  triggers:
+    - trigger: state
+      entity_id: switch.smart_relay_switch_interruptor
+      from: "off"
+      to: "on"
+      id: relay_power_restored
+  actions:
+    - action: script.climatizacion_retransmitir_estado_comandado
+  mode: restart
+  trace:
+    stored_traces: 30
+
+- id: witmind_climatizacion_salud_subsistema
+  alias: "Witmind - Salud del subsistema de climatización"
+  description: >-
+    Sensor inválido con alimentación disponible => FAULT + OFF seguro. Si uno
+    de los climate falla, el grupo completo queda FAULT. Cuando el sensor vuelve,
+    RECOVERY usa una ventana de validación de 2 s sin reiniciarse por nuevas lecturas numéricas válidas.
+  triggers:
+    - trigger: state
+      entity_id: sensor.climatizacion_temperatura_referencia
+      id: sensor
+    - trigger: state
+      entity_id:
+        - climate.aire_acondicionado_iris
+        - climate.aire_acondicionado_midea
+      id: climate
+  conditions:
+    - condition: state
+      entity_id: input_boolean.climatizacion_config_inicializada
+      state: "on"
+  actions:
+    - variables:
+        sensor_valid: >-
+          {{ states('sensor.climatizacion_temperatura_referencia') not in
+             ['unknown','unavailable','none','None',''] }}
+        iris_available: >-
+          {{ states('climate.aire_acondicionado_iris') not in
+             ['unknown','unavailable','none','None',''] }}
+        midea_available: >-
+          {{ states('climate.aire_acondicionado_midea') not in
+             ['unknown','unavailable','none','None',''] }}
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ not iris_available or not midea_available }}"
+          sequence:
+            - action: script.climatizacion_entrar_fault
+              data:
+                reason: "FAULT · IRIS + MIDEA no están disponibles como grupo"
+                safe_off: false
+        - conditions:
+            - condition: template
+              value_template: "{{ iris_available and midea_available and not sensor_valid }}"
+          sequence:
+            - action: script.climatizacion_entrar_fault
+              data:
+                reason: "FAULT · sensor de Oficina general no disponible"
+                safe_off: true
+        - conditions:
+            - condition: template
+              value_template: >-
+                {{ iris_available and midea_available and sensor_valid and
+                   is_state('input_select.climatizacion_control_mode','fault') }}
+          sequence:
+            - action: script.climatizacion_recuperar
+  mode: restart
+  trace:
+    stored_traces: 30
+
+- id: witmind_climatizacion_boundaries
+  alias: "Witmind - Boundaries horarios de climatización"
+  description: >-
+    El inicio de cada ventana abre la regulación y dispara RECOVERY con validación de 2 s;
+    la fase válida de hoy (o su inicialización) decide ON/OFF. El final mantiene
+    un hard stop OFF obligatorio.
+  triggers:
+    - trigger: time
+      at: input_datetime.climatizacion_manana_inicio
+      weekday: [mon, tue, wed, thu, fri, sat]
+      id: morning_start
+    - trigger: time
+      at: input_datetime.climatizacion_manana_fin
+      weekday: [mon, tue, wed, thu, fri, sat]
+      id: morning_end
+    - trigger: time
+      at: input_datetime.climatizacion_tarde_inicio
+      weekday: [mon, tue, wed, thu, fri, sat]
+      id: afternoon_start
+    - trigger: time
+      at: input_datetime.climatizacion_tarde_fin
+      weekday: [mon, tue, wed, thu, fri, sat]
+      id: afternoon_end
+  conditions:
+    - condition: state
+      entity_id: input_boolean.climatizacion_config_inicializada
+      state: "on"
+    - condition: state
+      entity_id: binary_sensor.bloqueo_automatizaciones_laborales
+      state: "off"
+  actions:
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.id == 'morning_start' }}"
+          sequence:
+            - action: script.climatizacion_inicio_manana
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.id == 'morning_end' }}"
+          sequence:
+            - action: script.climatizacion_fin_ventana
+              data:
+                period: manana
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.id == 'afternoon_start' }}"
+          sequence:
+            - action: script.climatizacion_inicio_tarde
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.id == 'afternoon_end' }}"
+          sequence:
+            - action: script.climatizacion_fin_ventana
+              data:
+                period: tarde
+  mode: queued
+  max: 10
+  trace:
+    stored_traces: 30
+
+- id: witmind_climatizacion_temperatura_crossing
+  alias: "Witmind - Control térmico y crossings"
+  description: >-
+    En AUTO reconcilia la demanda desde la fase térmica diaria. En MANUAL solo
+    recupera AUTO si el par from_state→to_state constituye un crossing válido.
+  triggers:
+    - trigger: state
+      entity_id: sensor.climatizacion_temperatura_referencia
+      id: temperature
+  conditions:
+    - condition: state
+      entity_id: input_boolean.climatizacion_config_inicializada
+      state: "on"
+    - condition: state
+      entity_id: input_boolean.climatizacion_sincronizado_sesion
+      state: "on"
+    - condition: template
+      value_template: >-
+        {{ states('climate.aire_acondicionado_iris') not in ['unknown','unavailable','none','None',''] and
+           states('climate.aire_acondicionado_midea') not in ['unknown','unavailable','none','None',''] and
+           states('sensor.climatizacion_temperatura_referencia') not in ['unknown','unavailable','none','None',''] }}
+  actions:
+    - variables:
+        old_valid: >-
+          {{ trigger.from_state is not none and
+             trigger.from_state.state not in ['unknown','unavailable','none','None',''] }}
+        old_temp: >-
+          {{ trigger.from_state.state | float(0) if trigger.from_state is not none else 0 }}
+        new_temp: "{{ trigger.to_state.state | float(0) }}"
+        weekday_ok: "{{ now().weekday() in [0,1,2,3,4,5] }}"
+        morning_start: "{{ states('input_datetime.climatizacion_manana_inicio') }}"
+        morning_end: "{{ states('input_datetime.climatizacion_manana_fin') }}"
+        afternoon_start: "{{ states('input_datetime.climatizacion_tarde_inicio') }}"
+        afternoon_end: "{{ states('input_datetime.climatizacion_tarde_fin') }}"
+        morning_window: >-
+          {{ weekday_ok and morning_start not in ['unknown','unavailable','none','None',''] and
+             morning_end not in ['unknown','unavailable','none','None',''] and
+             today_at(morning_start) <= now() < today_at(morning_end) }}
+        afternoon_window: >-
+          {{ weekday_ok and afternoon_start not in ['unknown','unavailable','none','None',''] and
+             afternoon_end not in ['unknown','unavailable','none','None',''] and
+             today_at(afternoon_start) <= now() < today_at(afternoon_end) }}
+        heat_on: "{{ states('input_number.climatizacion_manana_encender_en') | float(20) }}"
+        heat_off: "{{ states('input_number.climatizacion_manana_apagar_en') | float(23) }}"
+        cool_on: "{{ states('input_number.climatizacion_tarde_encender_en') | float(24) }}"
+        cool_off: "{{ states('input_number.climatizacion_tarde_apagar_en') | float(21) }}"
+        manual_mode: "{{ is_state('input_select.climatizacion_control_mode','manual') }}"
+        auto_mode: "{{ is_state('input_select.climatizacion_control_mode','auto') }}"
+
+    - choose:
+        # MANUAL: solamente edges nuevos. Un nivel que ya era verdadero no sirve.
+        - conditions:
+            - condition: template
+              value_template: "{{ manual_mode and old_valid }}"
+          sequence:
+            - choose:
+                - conditions:
+                    - condition: template
+                      value_template: >-
+                        {{ morning_window and is_state('input_boolean.climatizacion_manana_activa','on') and
+                           old_temp > heat_on and new_temp <= heat_on }}
+                  sequence:
+                    - action: script.climatizacion_recuperar_por_crossing
+                      data:
+                        event: heat_on
+
+                - conditions:
+                    - condition: template
+                      value_template: >-
+                        {{ morning_window and is_state('input_boolean.climatizacion_manana_activa','on') and
+                           old_temp < heat_off and new_temp >= heat_off }}
+                  sequence:
+                    - action: script.climatizacion_recuperar_por_crossing
+                      data:
+                        event: heat_off
+
+                - conditions:
+                    - condition: template
+                      value_template: >-
+                        {{ afternoon_window and is_state('input_boolean.climatizacion_tarde_activa','on') and
+                           old_temp < cool_on and new_temp >= cool_on }}
+                  sequence:
+                    - action: script.climatizacion_recuperar_por_crossing
+                      data:
+                        event: cool_on
+
+                - conditions:
+                    - condition: template
+                      value_template: >-
+                        {{ afternoon_window and is_state('input_boolean.climatizacion_tarde_activa','on') and
+                           old_temp > cool_off and new_temp <= cool_off }}
+                  sequence:
+                    - action: script.climatizacion_recuperar_por_crossing
+                      data:
+                        event: cool_off
+
+        # AUTO: regulación normal con memoria térmica persistente e idempotencia IR.
+        - conditions:
+            - condition: template
+              value_template: "{{ auto_mode }}"
+          sequence:
+            - action: script.climatizacion_reconciliar
+              data:
+                baseline: false
+                force: false
+                source: auto
+  mode: queued
+  max: 20
+  trace:
+    stored_traces: 40
+
+
+- id: witmind_climatizacion_memoria_termica_sensor
+  alias: "Witmind - Memoria térmica persistente por sensor"
+  description: >-
+    Actualiza las fases diarias a partir del sensor externo aunque la autoridad
+    esté temporalmente en MANUAL. No transmite IR, no cambia MANUAL/AUTO y no
+    utiliza el estado de climate.* como feedback físico.
+  triggers:
+    - trigger: state
+      entity_id: sensor.climatizacion_temperatura_referencia
+      id: temperature
+  conditions:
+    - condition: state
+      entity_id: input_boolean.climatizacion_config_inicializada
+      state: "on"
+  actions:
+    - action: script.climatizacion_actualizar_memoria_termica
+      data:
+        allow_initialize: false
+  mode: restart
+  trace:
+    stored_traces: 30
+
+- id: witmind_climatizacion_cambios_configuracion
+  alias: "Witmind - Reconciliar cambios de configuración climática"
+  description: >-
+    Horarios, umbrales, objetivos enviados y habilitación se reevaluan inmediatamente.
+    Los límites térmicos reparan la fase antes de respetar MANUAL; una configuración
+    inválida entra en FAULT y ningún cambio convierte MANUAL en AUTO por sí solo.
+  triggers:
+    - trigger: state
+      entity_id:
+        - input_boolean.climatizacion_manana_activa
+        - input_boolean.climatizacion_tarde_activa
+        - input_datetime.climatizacion_manana_inicio
+        - input_datetime.climatizacion_manana_fin
+        - input_datetime.climatizacion_tarde_inicio
+        - input_datetime.climatizacion_tarde_fin
+        - input_number.climatizacion_manana_apagar_en
+        - input_number.climatizacion_manana_encender_en
+        - input_number.climatizacion_manana_temperatura_objetivo
+        - input_number.climatizacion_tarde_encender_en
+        - input_number.climatizacion_tarde_apagar_en
+        - input_number.climatizacion_tarde_temperatura_objetivo
+  conditions:
+    - condition: state
+      entity_id: input_boolean.climatizacion_config_inicializada
+      state: "on"
+  actions:
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: >-
+                {{ is_state('input_select.climatizacion_control_mode','recovery') or
+                   is_state('input_select.climatizacion_control_mode','fault') or
+                   is_state('input_boolean.climatizacion_sincronizado_sesion','off') }}
+          sequence:
+            - action: script.climatizacion_recuperar
+      default:
+        - action: script.climatizacion_reconciliar
+          data:
+            baseline: false
+            force: false
+            source: auto
+            reason: "Configuración climática actualizada · estado reevaluado"
+  mode: restart
+  trace:
+    stored_traces: 30
+
+- id: witmind_climatizacion_watchdog
+  alias: "Witmind - Watchdog de climatización"
+  description: >-
+    Reconciliación periódica idempotente. Nunca reenvía el mismo estado AUTO y
+    nunca cancela MANUAL. Sirve para detectar desajustes de horario/estado.
+  triggers:
+    - trigger: time_pattern
+      minutes: "/5"
+  conditions:
+    - condition: state
+      entity_id: input_boolean.climatizacion_config_inicializada
+      state: "on"
+  actions:
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: input_select.climatizacion_control_mode
+              state: auto
+            - condition: state
+              entity_id: input_boolean.climatizacion_sincronizado_sesion
+              state: "on"
+          sequence:
+            - action: script.climatizacion_reconciliar
+              data:
+                baseline: false
+                force: false
+                source: auto
+  mode: single
+  max_exceeded: silent

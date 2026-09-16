@@ -1,0 +1,15 @@
+diagnostic_dump:
+  fields:
+    include_sensitive_data:
+      required: false
+      default: false
+      selector:
+        boolean:
+
+request_cfs_info:
+  fields:
+    device_id:
+      selector:
+        device:
+          integration: ha_creality_ws
+          multiple: true

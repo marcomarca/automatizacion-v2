@@ -1,0 +1,27 @@
+{
+  "name": "witmind-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "check": "bun run typecheck && bun run lint && bun test",
+    "check:pwsh": "bun run typecheck; bun run lint; bun test"
+  },
+  "dependencies": {
+    "echarts": "^5.6.0",
+    "lit": "^3.2.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/bun": "latest",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0"
+  }
+}

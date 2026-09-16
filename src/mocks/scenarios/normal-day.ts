@@ -1,0 +1,75 @@
+import type { DemoScenario } from "../../engine/scenario";
+
+export const normalDayScenario: DemoScenario = {
+  id: "normal-day",
+  name: "Normal Day",
+  description:
+    "Standard business day: office occupied, moderate daylight (250 lux), climate nominal at 23°C.",
+  initialClockTime: "2026-09-16T10:00:00Z",
+  initialState: {
+    zones: [
+      {
+        id: "zone-open-office",
+        name: "Open Office",
+        type: "office",
+        occupied: true,
+        absenceMinutes: 0,
+        daylightLux: 250,
+        targetLux: 500,
+        nominalPowerW: 144,
+        currentTemperature: 23.0,
+        targetTemperature: 23.0,
+      },
+      {
+        id: "zone-meeting-a",
+        name: "Meeting Room A",
+        type: "meeting",
+        occupied: true,
+        absenceMinutes: 0,
+        daylightLux: 180,
+        targetLux: 500,
+        nominalPowerW: 96,
+        currentTemperature: 22.8,
+        targetTemperature: 23.0,
+      },
+      {
+        id: "zone-showroom",
+        name: "Showroom",
+        type: "showroom",
+        occupied: true,
+        absenceMinutes: 0,
+        daylightLux: 350,
+        targetLux: 600,
+        nominalPowerW: 240,
+        currentTemperature: 23.2,
+        targetTemperature: 23.0,
+      },
+      {
+        id: "zone-corridor",
+        name: "Main Corridor",
+        type: "corridor",
+        occupied: true,
+        absenceMinutes: 0,
+        daylightLux: 120,
+        targetLux: 300,
+        nominalPowerW: 72,
+        currentTemperature: 22.5,
+        targetTemperature: 22.5,
+      },
+    ],
+    energy: {
+      energyBaselineKwh: 24.5,
+      energyActualKwh: 18.6,
+      automatedActions: 18,
+    },
+    upcomingMeeting: null,
+  },
+  timeline: [
+    {
+      atSecond: 5,
+      zoneId: "zone-open-office",
+      changes: { daylightLux: 280 },
+      description: "Daylight slightly rises to 280 lux.",
+    },
+  ],
+};

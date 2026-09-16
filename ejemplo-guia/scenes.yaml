@@ -1,0 +1,391 @@
+- id: '1774972082639'
+  name: ON General Lobby
+  entities:
+    switch.interruptor_inteligente_3_switch_1:
+      device_class: outlet
+      friendly_name: LOBBY Switch 1
+      state: 'on'
+    switch.interruptor_inteligente_3_switch_2:
+      device_class: outlet
+      friendly_name: LOBBY Switch 2
+      state: 'off'
+    switch.interruptor_inteligente_3_switch_3:
+      device_class: outlet
+      friendly_name: LOBBY Switch 3
+      state: 'off'
+    switch.interruptor_inteligente_3_switch_4:
+      device_class: outlet
+      friendly_name: LOBBY Switch 4
+      state: 'on'
+  metadata: {}
+  icon: mdi:laptop
+- id: '1774972309929'
+  name: Showroom Espera
+  entities:
+    switch.interruptor_inteligente_switch_4:
+      device_class: outlet
+      friendly_name: SPOTS SHOWROOM  Switch 4
+      state: 'off'
+    switch.interruptor_inteligente_2_switch_2:
+      device_class: outlet
+      friendly_name: DECORACIÓN SHOWROOM  Switch 2
+      state: 'off'
+  metadata:
+    switch.interruptor_inteligente_switch_4:
+      entity_only: true
+    switch.interruptor_inteligente_2_switch_2:
+      entity_only: true
+  icon: mdi:cards-variant
+- id: '1774977825105'
+  name: OFF General Lobby
+  entities:
+    switch.interruptor_inteligente_3_switch_1:
+      device_class: outlet
+      friendly_name: LOBBY Switch 1
+      state: 'on'
+    switch.interruptor_inteligente_3_switch_2:
+      device_class: outlet
+      friendly_name: LOBBY Switch 2
+      state: 'off'
+    switch.interruptor_inteligente_3_switch_3:
+      device_class: outlet
+      friendly_name: LOBBY Switch 3
+      state: 'off'
+    switch.interruptor_inteligente_3_switch_4:
+      device_class: outlet
+      friendly_name: LOBBY Switch 4
+      state: 'on'
+  metadata: {}
+  icon: hacs:hacs
+- id: '1775053285149'
+  name: OFF General Showroom
+  entities:
+    switch.interruptor_inteligente_switch_1:
+      device_class: outlet
+      friendly_name: SPOTS SHOWROOM  Switch 1
+      state: 'off'
+    switch.interruptor_inteligente_switch_2:
+      device_class: outlet
+      friendly_name: SPOTS SHOWROOM  Switch 2
+      state: 'off'
+    switch.interruptor_inteligente_switch_3:
+      device_class: outlet
+      friendly_name: SPOTS SHOWROOM  Switch 3
+      state: 'off'
+    switch.interruptor_inteligente_switch_4:
+      device_class: outlet
+      friendly_name: SPOTS SHOWROOM  Switch 4
+      state: 'off'
+    switch.interruptor_inteligente_2_switch_1:
+      device_class: outlet
+      friendly_name: DECORACIÓN SHOWROOM  Switch 1
+      state: 'on'
+    switch.interruptor_inteligente_2_switch_2:
+      device_class: outlet
+      friendly_name: DECORACIÓN SHOWROOM  Switch 2
+      state: 'off'
+    switch.interruptor_inteligente_2_switch_3:
+      device_class: outlet
+      friendly_name: DECORACIÓN SHOWROOM  Switch 3
+      state: 'off'
+    switch.interruptor_inteligente_2_switch_4:
+      device_class: outlet
+      friendly_name: DECORACIÓN SHOWROOM  Switch 4
+      state: 'off'
+    switch.smart_relay_switch_4_switch:
+      friendly_name: PANELES 4k Switch
+      state: 'off'
+  metadata: {}
+  icon: mdi:google-classroom
+- id: '1775053414900'
+  name: ON General Showroom
+  entities:
+    switch.interruptor_inteligente_switch_1:
+      device_class: outlet
+      friendly_name: SPOTS SHOWROOM  Switch 1
+      state: 'off'
+    switch.interruptor_inteligente_switch_2:
+      device_class: outlet
+      friendly_name: SPOTS SHOWROOM  Switch 2
+      state: 'off'
+    switch.interruptor_inteligente_switch_3:
+      device_class: outlet
+      friendly_name: SPOTS SHOWROOM  Switch 3
+      state: 'off'
+    switch.interruptor_inteligente_switch_4:
+      device_class: outlet
+      friendly_name: SPOTS SHOWROOM  Switch 4
+      state: 'off'
+    switch.interruptor_inteligente_2_switch_1:
+      device_class: outlet
+      friendly_name: DECORACIÓN SHOWROOM  Switch 1
+      state: 'on'
+    switch.interruptor_inteligente_2_switch_2:
+      device_class: outlet
+      friendly_name: DECORACIÓN SHOWROOM  Switch 2
+      state: 'off'
+    switch.interruptor_inteligente_2_switch_3:
+      device_class: outlet
+      friendly_name: DECORACIÓN SHOWROOM  Switch 3
+      state: 'off'
+    switch.interruptor_inteligente_2_switch_4:
+      device_class: outlet
+      friendly_name: DECORACIÓN SHOWROOM  Switch 4
+      state: 'off'
+    switch.smart_relay_switch_4_switch:
+      friendly_name: PANELES 4k Switch
+      state: 'off'
+  metadata: {}
+  icon: mdi:home-account
+- id: '1775070228654'
+  name: Presentación Panel/Downlight
+  entities:
+    switch.sonoff_100109cc99_3:
+      friendly_name: Downlights
+      state: 'on'
+    switch.sonoff_100109cc99_2:
+      friendly_name: Paneles
+      state: 'on'
+  metadata:
+    switch.sonoff_100109cc99_3:
+      entity_only: true
+    switch.sonoff_100109cc99_2:
+      entity_only: true
+  icon: mdi:image-filter-black-white
+- id: '1775145501747'
+  name: OFF General Sala Grabación
+  entities:
+    switch.interruptor_sala_de_grabacion_spots_decorativos:
+      raw_state: false
+      friendly_name: Interruptor Sala de Grabación Spots Decorativos
+      state: 'off'
+    switch.interruptor_sala_de_grabacion_paneles:
+      raw_state: false
+      friendly_name: Interruptor Sala de Grabación Paneles
+      state: 'off'
+    switch.interruptor_sala_de_grabacion_tracklights:
+      raw_state: false
+      friendly_name: Interruptor Sala de Grabación Tracklights
+      state: 'off'
+    switch.interruptor_sala_de_grabacion_tiras:
+      raw_state: false
+      friendly_name: Interruptor Sala de Grabación Tiras
+      state: 'off'
+  metadata:
+    switch.interruptor_sala_de_grabacion_spots_decorativos:
+      entity_only: true
+    switch.interruptor_sala_de_grabacion_paneles:
+      entity_only: true
+    switch.interruptor_sala_de_grabacion_tracklights:
+      entity_only: true
+    switch.interruptor_sala_de_grabacion_tiras:
+      entity_only: true
+  icon: mdi:office-building-remove-outline
+- id: '1775145569853'
+  name: ON General Sala de Grabación
+  entities:
+    switch.interruptor_sala_de_grabacion_spots_decorativos:
+      raw_state: true
+      friendly_name: Interruptor Sala de Grabación Spots Decorativos
+      state: 'on'
+    switch.interruptor_sala_de_grabacion_paneles:
+      raw_state: true
+      friendly_name: Interruptor Sala de Grabación Paneles
+      state: 'on'
+    switch.interruptor_sala_de_grabacion_tracklights:
+      raw_state: true
+      friendly_name: Interruptor Sala de Grabación Tracklights
+      state: 'on'
+    switch.interruptor_sala_de_grabacion_tiras:
+      raw_state: true
+      friendly_name: Interruptor Sala de Grabación Tiras
+      state: 'on'
+  metadata:
+    switch.interruptor_sala_de_grabacion_spots_decorativos:
+      entity_only: true
+    switch.interruptor_sala_de_grabacion_paneles:
+      entity_only: true
+    switch.interruptor_sala_de_grabacion_tracklights:
+      entity_only: true
+    switch.interruptor_sala_de_grabacion_tiras:
+      entity_only: true
+- id: '1783715940950'
+  name: APAGADO TOTAL
+  entities:
+    light.sala_de_grabacion_interruptor_1:
+      supported_color_modes:
+      - onoff
+      color_mode:
+      friendly_name: TIRAS LED
+      supported_features: 0
+      state: 'off'
+    light.sala_de_grabacion_interruptor_2:
+      supported_color_modes:
+      - onoff
+      color_mode:
+      friendly_name: PANELES
+      supported_features: 0
+      state: 'off'
+    light.sala_de_grabacion_interruptor_3:
+      supported_color_modes:
+      - onoff
+      color_mode:
+      friendly_name: TRACKLIGHT
+      supported_features: 0
+      state: 'off'
+    light.sala_de_grabacion_interruptor_4:
+      supported_color_modes:
+      - onoff
+      color_mode:
+      friendly_name: SPOTS
+      supported_features: 0
+      state: 'off'
+  metadata: {}
+  icon: mdi:brightness-1
+- id: '1783800564378'
+  name: switch 1 oficina grande
+  entities:
+    switch.oficina_grande_interruptor_1:
+      device_class: outlet
+      friendly_name: OFICINA GENERAL Switch 1
+      state: 'on'
+  metadata:
+    switch.oficina_grande_interruptor_1:
+      entity_only: true
+- id: '1784065948783'
+  name: Slims Panel Moes
+  entities:
+    switch.sonoff_100109cc99_1:
+      friendly_name: Slims
+      state: 'off'
+  metadata:
+    switch.sonoff_100109cc99_1:
+      entity_only: true
+- id: '1784144252959'
+  name: Slims prueba 2
+  entities:
+    switch.sonoff_100109cc99_1:
+      friendly_name: Slims
+      state: 'off'
+    automation.slims_panel_moes:
+      id: '1784066094741'
+      last_triggered:
+      mode: single
+      current: 0
+      friendly_name: Slims Panel Moes
+      state: 'on'
+  metadata:
+    switch.sonoff_100109cc99_1:
+      entity_only: true
+    automation.slims_panel_moes:
+      entity_only: true
+- id: '1784659259057'
+  name: Showroom Spots muestra
+  entities:
+    switch.interruptor_inteligente_switch_2:
+      device_class: outlet
+      friendly_name: SPOTS SHOWROOM  Switch 2
+      state: 'on'
+    switch.interruptor_inteligente_switch_1:
+      device_class: outlet
+      friendly_name: SPOTS SHOWROOM  Switch 1
+      state: 'off'
+  metadata:
+    switch.interruptor_inteligente_switch_2:
+      entity_only: true
+    switch.interruptor_inteligente_switch_1:
+      entity_only: true
+  icon: mdi:cards-variant
+- id: showroom_presentacion
+  name: "Presentación"
+  icon: mdi:presentation
+  entities:
+    switch.interruptor_inteligente_switch_1:   # spots ventana
+      state: "on"
+    switch.interruptor_inteligente_switch_4:   # spots TV
+      state: "on"
+    switch.interruptor_inteligente_switch_2:   # spots 2x3
+      state: "off"
+    switch.interruptor_inteligente_switch_3:   # spots 3x3
+      state: "off"
+    switch.interruptor_inteligente_2_switch_1: # paneles 3k/6k
+      state: "off"
+    switch.interruptor_inteligente_2_switch_2: # colgantes
+      state: "off"
+    switch.interruptor_inteligente_2_switch_3: # slims
+      state: "off"
+    switch.interruptor_inteligente_2_switch_4: # downlights
+      state: "off"
+    switch.smart_relay_switch_4_switch:        # paneles (relé)
+      state: "off"
+ 
+- id: showroom_reunion
+  name: "Reunión"
+  icon: mdi:account-group
+  entities:
+    switch.interruptor_inteligente_switch_3:   # spots 3x3
+      state: "off"
+    switch.interruptor_inteligente_switch_1:   # spots ventana
+      state: "on"
+    switch.interruptor_inteligente_switch_4:   # spots TV
+      state: "off"
+    switch.interruptor_inteligente_switch_2:   # spots 2x3
+      state: "on"
+    switch.interruptor_inteligente_2_switch_1: # paneles 3k/6k
+      state: "off"
+    switch.interruptor_inteligente_2_switch_2: # colgantes
+      state: "off"
+    switch.interruptor_inteligente_2_switch_3: # slims
+      state: "off"
+    switch.interruptor_inteligente_2_switch_4: # downlights
+      state: "off"
+    switch.smart_relay_switch_4_switch:        # paneles (relé)
+      state: "off"
+ 
+- id: showroom_muestra_spots
+  name: "Muestra Spots"
+  icon: mdi:spotlight
+  entities:
+    switch.interruptor_inteligente_switch_2:   # spots 2x3
+      state: "on"
+    switch.interruptor_inteligente_switch_1:   # spots ventana
+      state: "on"
+    switch.interruptor_inteligente_switch_4:   # spots TV
+      state: "on"
+    switch.interruptor_inteligente_switch_3:   # spots 3x3
+      state: "off"
+    switch.interruptor_inteligente_2_switch_1: # paneles 3k/6k
+      state: "off"
+    switch.interruptor_inteligente_2_switch_2: # colgantes
+      state: "off"
+    switch.interruptor_inteligente_2_switch_3: # slims
+      state: "off"
+    switch.interruptor_inteligente_2_switch_4: # downlights
+      state: "off"
+    switch.smart_relay_switch_4_switch:        # paneles (relé)
+      state: "off"
+ 
+- id: showroom_slims
+  name: "Slims"
+  icon: mdi:led-strip-variant
+  entities:
+    switch.interruptor_inteligente_2_switch_3: # slims
+      state: "on"
+    switch.interruptor_inteligente_switch_1:   # spots ventana
+      state: "off"
+    switch.interruptor_inteligente_switch_2:   # spots 2x3
+      state: "off"
+    switch.interruptor_inteligente_switch_3:   # spots 3x3
+      state: "off"
+    switch.interruptor_inteligente_switch_4:   # spots TV
+      state: "off"
+    switch.interruptor_inteligente_2_switch_1: # paneles 3k/6k
+      state: "off"
+    switch.interruptor_inteligente_2_switch_2: # colgantes
+      state: "off"
+    switch.interruptor_inteligente_2_switch_4: # downlights
+      state: "off"
+    switch.smart_relay_switch_4_switch:        # paneles (relé)
+      state: "off"
+
+

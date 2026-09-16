@@ -1,0 +1,1730 @@
+showroom_presentacion:
+  alias: Showroom - Presentación
+  icon: mdi:presentation-play
+  sequence:
+  - target:
+      entity_id:
+      - switch.sonoff_100109cc99_2
+      - switch.sonoff_100109cc99_3
+    action: switch.turn_on
+  description: ''
+showroom_encendido_general:
+  alias: "Showroom - Encendido General"
+  icon: mdi:lightbulb-group
+  sequence:
+    - action: switch.turn_on
+      target:
+        entity_id:
+          - switch.interruptor_inteligente_switch_1     # spots ventana
+          - switch.interruptor_inteligente_switch_2     # spots 2x3
+          - switch.interruptor_inteligente_switch_3     # spots 3x3
+          - switch.interruptor_inteligente_switch_4     # spots TV
+          - switch.interruptor_inteligente_2_switch_1   # paneles 3k/6k
+          - switch.interruptor_inteligente_2_switch_2   # colgantes
+          - switch.interruptor_inteligente_2_switch_3   # slims
+          - switch.interruptor_inteligente_2_switch_4   # downlights
+          - switch.smart_relay_switch_4_switch          # paneles (relé)
+ 
+showroom_apagado_general:
+  alias: "Showroom - Apagado General"
+  icon: mdi:lightbulb-group-off
+  sequence:
+    - action: switch.turn_off
+      target:
+        entity_id:
+          - switch.interruptor_inteligente_switch_1
+          - switch.interruptor_inteligente_switch_2
+          - switch.interruptor_inteligente_switch_3
+          - switch.interruptor_inteligente_switch_4
+          - switch.interruptor_inteligente_2_switch_1
+          - switch.interruptor_inteligente_2_switch_2
+          - switch.interruptor_inteligente_2_switch_3
+          - switch.interruptor_inteligente_2_switch_4
+          - switch.smart_relay_switch_4_switch
+
+# -----------------------------------------------------------------------------
+# APAGADO TOTAL PROTEGIDO — MODO DE PRUEBA
+# Durante la validación, únicamente se controla switch.b2_gang_interruptor_2
+# (Pasillo). Los demás circuitos están conservados como comentarios.
+# -----------------------------------------------------------------------------
+preparar_apagado_total:
+  alias: "Preparar apagado total"
+  description: "Habilita durante 20 segundos una autorización de un solo uso."
+  icon: mdi:shield-key
+  mode: restart
+  sequence:
+    - alias: "Abrir ventana temporal de autorización"
+      action: timer.start
+      target:
+        entity_id: timer.ventana_apagado_total
+      data:
+        duration: "00:00:20"
+
+apagado_total_witmind:
+  alias: "Apagado total Witmind · PRUEBA PASILLO"
+  description: >-
+    Valida y consume la autorización backend. Durante las pruebas solo apaga
+    el circuito Pasillo; todos los demás circuitos están desactivados.
+  icon: mdi:power
+  mode: single
+  max_exceeded: silent
+  sequence:
+    - variables:
+        circuitos:
+          # Showroom — DESACTIVADO DURANTE PRUEBAS
+          # - switch.interruptor_inteligente_switch_1
+          # - switch.interruptor_inteligente_switch_2
+          # - switch.interruptor_inteligente_switch_3
+          # - switch.interruptor_inteligente_switch_4
+          # - switch.interruptor_inteligente_2_switch_1
+          # - switch.interruptor_inteligente_2_switch_2
+          # - switch.interruptor_inteligente_2_switch_3
+          # - switch.interruptor_inteligente_2_switch_4
+          # - switch.smart_relay_switch_4_switch
+          # - switch.smart_relay_switch_3_switch
+
+          # Lobby — DESACTIVADO DURANTE PRUEBAS
+          # - switch.interruptor_inteligente_3_switch_1
+          # - switch.interruptor_inteligente_3_switch_2
+          # - switch.interruptor_inteligente_3_switch_3
+          # - switch.interruptor_inteligente_3_switch_4
+
+          # Oficinas — DESACTIVADO DURANTE PRUEBAS
+          # - switch.oficina_gerencial_interruptor_1
+          # - switch.oficina_mindtec_interruptor_1
+          # - switch.oficina_grande_interruptor_1
+          # - switch.oficina_grande_interruptor_2
+          # - switch.b2_gang_interruptor_1
+          - switch.b2_gang_interruptor_2  # Pasillo — ÚNICO CIRCUITO ACTIVO
+          # - switch.taller_interruptor_1
+
+          # Sala de grabación — DESACTIVADO DURANTE PRUEBAS
+          # - switch.4gang_switch_sala_grabacion_interruptor_1
+          # - switch.4gang_switch_sala_grabacion_interruptor_2
+          # - switch.4gang_switch_sala_grabacion_interruptor_3
+          # - switch.4gang_switch_sala_grabacion_interruptor_4
+
+    - alias: "Validar autorización temporal"
+      if:
+        - condition: state
+          entity_id: timer.ventana_apagado_total
+          state: active
+      then:
+        # La autorización se consume antes de tocar cualquier circuito.
+        - alias: "Consumir autorización"
+          action: timer.cancel
+          target:
+            entity_id: timer.ventana_apagado_total
+      else:
+        - stop: "Apagado rechazado: no existe una autorización activa."
+          error: true
+
+    # Las llamadas históricas quedan deliberadamente desactivadas en pruebas.
+    # - action: script.showroom_apagado_general
+    #   continue_on_error: true
+    # - action: scene.turn_on
+    #   target:
+    #     entity_id: scene.apagado_total
+    #   continue_on_error: true
+
+    - alias: "Apagar circuito de prueba"
+      action: switch.turn_off
+      target:
+        entity_id: "{{ circuitos }}"
+
+    - alias: "Esperar confirmación de apagado"
+      wait_template: >-
+        {{ expand(circuitos)
+           | selectattr('state', 'eq', 'on')
+           | list
+           | count == 0 }}
+      timeout: "00:00:08"
+      continue_on_timeout: true
+
+    - alias: "Reintentar si el circuito sigue encendido"
+      if:
+        - condition: template
+          value_template: >-
+            {{ expand(circuitos)
+               | selectattr('state', 'eq', 'on')
+               | list
+               | count > 0 }}
+      then:
+        - action: switch.turn_off
+          target:
+            entity_id: >-
+              {{ expand(circuitos)
+                 | selectattr('state', 'eq', 'on')
+                 | map(attribute='entity_id')
+                 | list }}
+        - wait_template: >-
+            {{ expand(circuitos)
+               | selectattr('state', 'eq', 'on')
+               | list
+               | count == 0 }}
+          timeout: "00:00:05"
+          continue_on_timeout: true
+
+    - alias: "Fallar si no existe confirmación real"
+      if:
+        - condition: template
+          value_template: >-
+            {{ expand(circuitos)
+               | selectattr('state', 'eq', 'on')
+               | list
+               | count > 0 }}
+      then:
+        - stop: >-
+            No se confirmó el apagado de:
+            {{ expand(circuitos)
+               | selectattr('state', 'eq', 'on')
+               | map(attribute='entity_id')
+               | join(', ') }}
+          error: true
+
+# -----------------------------------------------------------------------------
+# CONTROL MÓVIL MEDIANTE NOTIFICACIÓN PERMANENTE — MODO DE PRUEBA PASILLO
+# Teléfono objetivo exclusivo para este control:
+# Dispositivo: M2102J20SG
+# Entidad visible: notify.m2102j20sg
+# Acción Companion para funciones Android avanzadas: notify.mobile_app_m2102j20sg
+# -----------------------------------------------------------------------------
+actualizar_notificacion_apagado_protegido:
+  alias: "Actualizar notificación de apagado protegido"
+  description: >-
+    Publica o reemplaza la notificación permanente de control. El mismo tag
+    evita duplicados y refleja si la barrera está bloqueada o armada.
+  icon: mdi:cellphone-lock
+  mode: restart
+  sequence:
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: timer.ventana_apagado_total
+              state: active
+          sequence:
+            - action: notify.mobile_app_m2102j20sg
+              data:
+                title: "Witmind · Apagado protegido"
+                message: >-
+                  🟠 ARMADO · Confirma antes de 20 segundos. Modo de prueba:
+                  únicamente se apagará el circuito Pasillo.
+                data:
+                  tag: witmind_apagado_protegido
+                  persistent: true
+                  sticky: "true"
+                  alert_once: true
+                  channel: "Witmind apagado protegido"
+                  priority: high
+                  ttl: 0
+                  color: "#F59E0B"
+                  notification_icon: mdi:shield-alert
+                  actions:
+                    - action: WITMIND_CONFIRMAR_APAGADO
+                      title: "CONFIRMAR APAGADO"
+                      authenticationRequired: true
+                    - action: WITMIND_CANCELAR_APAGADO
+                      title: "CANCELAR"
+                      authenticationRequired: true
+      default:
+        - action: notify.mobile_app_m2102j20sg
+          data:
+            title: "Witmind · Apagado protegido"
+            message: >-
+              🔒 BLOQUEADO · Pulsa Preparar para abrir una autorización de
+              un solo uso durante 20 segundos. Prueba limitada al Pasillo.
+            data:
+              tag: witmind_apagado_protegido
+              persistent: true
+              sticky: true
+              alert_once: true
+              channel: "Witmind apagado protegido"
+              priority: high
+              ttl: 0
+              color: "#607D8B"
+              notification_icon: mdi:shield-lock
+              actions:
+                - action: WITMIND_PREPARAR_APAGADO
+                  title: "PREPARAR"
+                  authenticationRequired: true
+
+notificar_resultado_apagado_protegido:
+  alias: "Notificar resultado de apagado protegido"
+  description: "Envía feedback temporal después de confirmar o rechazar la acción."
+  icon: mdi:message-alert
+  mode: parallel
+  max: 5
+  fields:
+    resultado:
+      name: Resultado
+      description: "Valores admitidos: correcto, fallo o rechazado."
+      required: true
+      selector:
+        select:
+          options:
+            - correcto
+            - fallo
+            - rechazado
+  sequence:
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ resultado == 'correcto' }}"
+          sequence:
+            - action: notify.mobile_app_m2102j20sg
+              data:
+                title: "Apagado protegido · completado"
+                message: "Pasillo confirmado en estado apagado."
+                data:
+                  tag: witmind_apagado_resultado
+                  timeout: 10
+                  channel: "Witmind apagado protegido"
+                  priority: high
+                  ttl: 0
+                  color: "#22C55E"
+                  notification_icon: mdi:check-circle
+        - conditions:
+            - condition: template
+              value_template: "{{ resultado == 'fallo' }}"
+          sequence:
+            - action: notify.mobile_app_m2102j20sg
+              data:
+                title: "Apagado protegido · sin confirmación"
+                message: >-
+                  No se confirmó el apagado del Pasillo. Revisa el circuito y
+                  las trazas de script.apagado_total_witmind.
+                data:
+                  tag: witmind_apagado_resultado
+                  timeout: 15
+                  channel: "Witmind apagado protegido"
+                  priority: high
+                  ttl: 0
+                  color: "#EF4444"
+                  notification_icon: mdi:alert-circle
+      default:
+        - action: notify.mobile_app_m2102j20sg
+          data:
+            title: "Apagado protegido · rechazado"
+            message: >-
+              La orden fue rechazada porque la autorización no estaba activa
+              o ya había sido consumida.
+            data:
+              tag: witmind_apagado_resultado
+              timeout: 10
+              channel: "Witmind apagado protegido"
+              priority: high
+              ttl: 0
+              color: "#F59E0B"
+              notification_icon: mdi:shield-off
+# -----------------------------------------------------------------------------
+# WITMIND — CLIMATIZACIÓN IR / AUTO-MANUAL
+#
+# IRIS + MIDEA son una única unidad lógica. Este bloque es la única capa que
+# puede ejecutar climate.* para la climatización. El relé maestro es solamente
+# una precondición de disponibilidad y nunca se conmuta desde estos scripts.
+# -----------------------------------------------------------------------------
+climatizacion_transmitir_estado_ir:
+  alias: "Climatización · Transmitir estado absoluto a un equipo"
+  description: >-
+    Adaptador de bajo nivel para una única entidad Tuya Smart IR AC. Cada llamada
+    trabaja con un solo climate para que un fallo de IRIS no cancele MIDEA ni
+    viceversa. En HEAT/COOL/AUTO usa climate.set_temperature con hvac_mode para
+    que la integración construya un paquete combinado de modo+temperatura; después
+    reafirma el ventilador. Si el primer comando falla, esta secuencia se detiene y
+    no envía un segundo paquete potencialmente incoherente a ese mismo equipo.
+  icon: mdi:remote
+  mode: queued
+  max: 60
+  fields:
+    entity_id:
+      name: Entidad climate destino
+      required: true
+    hvac_mode:
+      name: Modo HVAC absoluto
+      required: true
+    temperature:
+      name: Temperatura absoluta
+    fan_mode:
+      name: Ventilador absoluto
+  sequence:
+    - variables:
+        target_entity: "{{ entity_id | string }}"
+        target_mode: "{{ hvac_mode | string | lower }}"
+        target_temperature: "{{ temperature | default(none) }}"
+        target_fan: "{{ fan_mode | default(none) }}"
+        target_temperature_valid: >-
+          {{ target_temperature is not none and
+             (target_temperature | string) not in ['unknown','unavailable','none','None',''] and
+             is_number(target_temperature) }}
+        target_fan_valid: >-
+          {{ target_fan is not none and
+             (target_fan | string | lower) in ['auto','low','medium','high'] }}
+
+    - if:
+        - condition: template
+          value_template: >-
+            {{ target_entity not in [
+              'climate.aire_acondicionado_iris',
+              'climate.aire_acondicionado_midea'
+            ] }}
+      then:
+        - stop: "Entidad HVAC no permitida: {{ target_entity }}"
+          error: true
+
+    - if:
+        - condition: template
+          value_template: "{{ target_mode not in ['off','heat','cool','auto','dry','fan_only'] }}"
+      then:
+        - stop: "Modo HVAC no permitido: {{ target_mode }}"
+          error: true
+
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ target_mode == 'off' }}"
+          sequence:
+            - action: climate.turn_off
+              target:
+                entity_id: "{{ target_entity }}"
+
+        - conditions:
+            - condition: template
+              value_template: "{{ target_mode in ['heat','cool','auto'] and target_temperature_valid }}"
+          sequence:
+            # Tuya Smart IR AC acepta hvac_mode junto con set_temperature y lo
+            # convierte en un único paquete combinado modo+temperatura+fan actual.
+            - action: climate.set_temperature
+              target:
+                entity_id: "{{ target_entity }}"
+              data:
+                hvac_mode: "{{ target_mode }}"
+                temperature: "{{ target_temperature | float }}"
+
+            # El primer comando ya actualizó optimistamente el cache de la
+            # integración. Reafirmar FAN después produce un estado final absoluto.
+            - if:
+                - condition: template
+                  value_template: "{{ target_fan_valid }}"
+              then:
+                - action: climate.set_fan_mode
+                  target:
+                    entity_id: "{{ target_entity }}"
+                  data:
+                    fan_mode: "{{ target_fan | string | lower }}"
+
+      default:
+        # DRY/FAN_ONLY no usan consigna térmica en este controlador.
+        - action: climate.set_hvac_mode
+          target:
+            entity_id: "{{ target_entity }}"
+          data:
+            hvac_mode: "{{ target_mode }}"
+        - if:
+            - condition: template
+              value_template: "{{ target_fan_valid }}"
+          then:
+            - action: climate.set_fan_mode
+              target:
+                entity_id: "{{ target_entity }}"
+              data:
+                fan_mode: "{{ target_fan | string | lower }}"
+
+climatizacion_aplicar_estado:
+  alias: "Climatización · Aplicar estado canónico"
+  description: >-
+    Único punto de decisión HVAC. La telemetría del relé maestro no participa
+    como permiso de transmisión: las órdenes IR dependen del estado lógico HVAC
+    y de la disponibilidad de IRIS+MIDEA. Un error de una entidad no revierte la
+    interfaz ni cancela la transmisión a la otra. source=manual toma autoridad.
+  icon: mdi:air-conditioner
+  mode: queued
+  max: 30
+  fields:
+    source:
+      name: Origen
+      required: true
+      selector:
+        select:
+          options:
+            - auto
+            - manual
+            - recovery
+    hvac_mode:
+      name: Modo HVAC
+      required: true
+      selector:
+        select:
+          options:
+            - "off"
+            - heat
+            - cool
+            - auto
+            - dry
+            - fan_only
+    temperature:
+      name: Temperatura objetivo absoluta
+      description: >-
+        Consigna explícita 16–30 °C. Si se omite en heat/cool/auto se usa el helper
+        input_number.climatizacion_temperatura_comandada, nunca el estado climate.*.
+      selector:
+        number:
+          min: 16
+          max: 30
+          step: 1
+          unit_of_measurement: "°C"
+    fan_mode:
+      name: Ventilador
+      selector:
+        select:
+          options: [auto, low, medium, high]
+    force:
+      name: Forzar transmisión
+      description: "Usar para intervención manual, boundary o RECOVERY."
+      selector:
+        boolean:
+  sequence:
+    - variables:
+        requested_source: "{{ source | default('auto', true) | string | lower }}"
+        requested_mode: "{{ hvac_mode | default('off', true) | string | lower }}"
+        requested_temperature: "{{ temperature | default(none) }}"
+        requested_fan: "{{ fan_mode | default(none) }}"
+        force_send: "{{ force | default(false) | bool }}"
+        iris_available: >-
+          {{ states('climate.aire_acondicionado_iris') not in ['unknown','unavailable','none','None',''] }}
+        midea_available: >-
+          {{ states('climate.aire_acondicionado_midea') not in ['unknown','unavailable','none','None',''] }}
+        current_control_mode: "{{ states('input_select.climatizacion_control_mode') }}"
+        session_ready: "{{ is_state('input_boolean.climatizacion_sincronizado_sesion', 'on') }}"
+        sensor_valid: >-
+          {{ states('sensor.climatizacion_temperatura_referencia') not in ['unknown','unavailable','none','None',''] }}
+        commanded_mode: "{{ states('input_select.climatizacion_modo_comandado') }}"
+        commanded_on: "{{ is_state('input_boolean.climatizacion_estado_comandado', 'on') }}"
+        commanded_temperature_raw: "{{ states('input_number.climatizacion_temperatura_comandada') }}"
+        commanded_fan_raw: "{{ states('input_select.climatizacion_ventilador_comandado') }}"
+        requested_temperature_valid: >-
+          {{ requested_temperature is not none and
+             (requested_temperature | string) not in ['unknown','unavailable','none','None',''] and
+             is_number(requested_temperature) }}
+        requested_fan_valid: >-
+          {{ requested_fan is not none and
+             (requested_fan | string | lower) in ['auto','low','medium','high'] }}
+        temperature_applicable: "{{ requested_mode in ['heat','cool','auto'] }}"
+        effective_temperature: >-
+          {% set raw = requested_temperature if requested_temperature_valid
+             else commanded_temperature_raw %}
+          {% set t = raw | float(16) %}
+          {{ 16 if t < 16 else 30 if t > 30 else t }}
+        effective_fan: >-
+          {% if requested_fan_valid %}
+            {{ requested_fan | string | lower }}
+          {% elif commanded_fan_raw in ['auto','low','medium','high'] %}
+            {{ commanded_fan_raw }}
+          {% else %}
+            auto
+          {% endif %}
+        same_mode_command: >-
+          {{ (requested_mode == 'off' and not commanded_on and commanded_mode == 'off') or
+             (requested_mode != 'off' and commanded_on and commanded_mode == requested_mode) }}
+        same_temperature_command: >-
+          {{ not temperature_applicable or
+             (is_number(commanded_temperature_raw) and
+              (commanded_temperature_raw | float) == (effective_temperature | float)) }}
+        same_fan_command: >-
+          {{ requested_mode == 'off' or commanded_fan_raw == effective_fan }}
+        same_command: "{{ same_mode_command and same_temperature_command and same_fan_command }}"
+
+    - if:
+        - condition: template
+          value_template: "{{ requested_source not in ['auto','manual','recovery'] }}"
+      then:
+        - stop: "Origen de climatización no permitido: {{ requested_source }}"
+          error: true
+
+    - if:
+        - condition: template
+          value_template: "{{ requested_mode not in ['off','heat','cool','auto','dry','fan_only'] }}"
+      then:
+        - stop: "Modo HVAC no permitido: {{ requested_mode }}"
+          error: true
+
+    - if:
+        - condition: template
+          value_template: "{{ not iris_available or not midea_available }}"
+      then:
+        - stop: "IRIS+MIDEA no están disponibles como grupo."
+          error: false
+
+    # AUTO/MANUAL operativos requieren el sensor de referencia válido. RECOVERY
+    # mantiene permiso exclusivo para ejecutar el OFF seguro de un FAULT sensor.
+    - if:
+        - condition: template
+          value_template: "{{ requested_source in ['auto','manual'] and not sensor_valid }}"
+      then:
+        - stop: "Sensor de referencia inválido; actuación operativa descartada."
+          error: false
+
+    - if:
+        - condition: template
+          value_template: >-
+            {{ requested_source == 'manual' and
+               (not session_ready or current_control_mode in ['fault','recovery']) }}
+      then:
+        - stop: "La climatización no está disponible para control manual."
+          error: false
+
+    - if:
+        - condition: template
+          value_template: >-
+            {{ requested_source == 'auto' and
+               (current_control_mode != 'auto' or not session_ready) }}
+      then:
+        - stop: "AUTO sin autoridad o sin sincronización; orden descartada."
+          error: false
+
+    - if:
+        - condition: template
+          value_template: "{{ requested_source == 'manual' }}"
+      then:
+        - action: input_select.select_option
+          target:
+            entity_id: input_select.climatizacion_control_mode
+          data:
+            option: manual
+        - action: input_boolean.turn_off
+          target:
+            entity_id:
+              - input_boolean.climatizacion_demanda_calor
+              - input_boolean.climatizacion_demanda_frio
+
+    - if:
+        - condition: template
+          value_template: "{{ same_command and not force_send }}"
+      then:
+        - stop: "Estado absoluto ya comandado; no se retransmite IR."
+          error: false
+
+    # -----------------------------------------------------------------------
+    # COMMIT LÓGICO: Home Assistant adopta la última orden solicitada antes de
+    # transmitir. Esto es deliberado: si el relé estaba físicamente OFF, la orden
+    # puede no llegar al aire, pero un OFF→ON explícito retransmite este último
+    # estado comandado. UNKNOWN/UNAVAILABLE del relé no intervienen aquí.
+    # -----------------------------------------------------------------------
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ requested_mode == 'off' }}"
+          sequence:
+            - action: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.climatizacion_estado_comandado
+            - action: input_select.select_option
+              target:
+                entity_id: input_select.climatizacion_modo_comandado
+              data:
+                option: "off"
+      default:
+        - action: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.climatizacion_estado_comandado
+        - action: input_select.select_option
+          target:
+            entity_id: input_select.climatizacion_modo_comandado
+          data:
+            option: "{{ requested_mode }}"
+        - if:
+            - condition: template
+              value_template: "{{ temperature_applicable }}"
+          then:
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.climatizacion_temperatura_comandada
+              data:
+                value: "{{ effective_temperature | float }}"
+        - action: input_select.select_option
+          target:
+            entity_id: input_select.climatizacion_ventilador_comandado
+          data:
+            option: "{{ effective_fan }}"
+
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.climatizacion_ultimo_evento
+      data:
+        value: >-
+          {{ ('MANUAL' if requested_source == 'manual' else requested_source | upper) ~
+             ' · orden absoluta ' ~ requested_mode | upper ~
+             ((' ' ~ (effective_temperature | float | round(0) | int) ~ '°C') if temperature_applicable else '') ~
+             ((' · FAN ' ~ effective_fan | upper) if requested_mode != 'off' else '') }}
+
+    # -----------------------------------------------------------------------
+    # TRANSMISIÓN AISLADA: jamás se usa una acción climate.* con dos entidades.
+    # Home Assistant detiene una secuencia al primer error por defecto; por eso
+    # cada equipo se ejecuta en su propio subscript y el padre continúa.
+    # -----------------------------------------------------------------------
+    - action: script.climatizacion_transmitir_estado_ir
+      continue_on_error: true
+      data:
+        entity_id: climate.aire_acondicionado_iris
+        hvac_mode: "{{ requested_mode }}"
+        temperature: "{{ effective_temperature | float if temperature_applicable else none }}"
+        fan_mode: "{{ effective_fan if requested_mode != 'off' else none }}"
+
+    - action: script.climatizacion_transmitir_estado_ir
+      continue_on_error: true
+      data:
+        entity_id: climate.aire_acondicionado_midea
+        hvac_mode: "{{ requested_mode }}"
+        temperature: "{{ effective_temperature | float if temperature_applicable else none }}"
+        fan_mode: "{{ effective_fan if requested_mode != 'off' else none }}"
+
+climatizacion_encender_calor:
+  alias: "Climatización · Perfil calor"
+  icon: mdi:fire
+  mode: queued
+  max: 20
+  fields:
+    source:
+      description: "Origen lógico: auto, manual o recovery."
+    force:
+      description: "Si true, fuerza la transmisión aunque el modo ya esté comandado."
+  sequence:
+    - action: script.climatizacion_aplicar_estado
+      data:
+        source: "{{ source | default('auto', true) }}"
+        hvac_mode: heat
+        # Seguridad final: la consigna HEAT puede ser mayor que el umbral del
+        # sensor, pero nunca menor. ceil mantiene la consigna en pasos enteros.
+        temperature: >-
+          {% set objetivo = states('input_number.climatizacion_manana_temperatura_objetivo') | float(23) %}
+          {% set apagar = states('input_number.climatizacion_manana_apagar_en') | float(23) %}
+          {{ ([objetivo, apagar] | max) | round(0, 'ceil') }}
+        fan_mode: "{{ states('input_select.climatizacion_manana_ventilador') if states('input_select.climatizacion_manana_ventilador') in ['auto','low','medium','high'] else 'auto' }}"
+        force: "{{ force | default(false) | bool }}"
+
+climatizacion_encender_frio:
+  alias: "Climatización · Perfil frío"
+  icon: mdi:snowflake
+  mode: queued
+  max: 20
+  fields:
+    source:
+      description: "Origen lógico: auto, manual o recovery."
+    force:
+      description: "Si true, fuerza la transmisión aunque el modo ya esté comandado."
+  sequence:
+    - action: script.climatizacion_aplicar_estado
+      data:
+        source: "{{ source | default('auto', true) }}"
+        hvac_mode: cool
+        # Seguridad final: la consigna COOL puede ser menor que el umbral del
+        # sensor, pero nunca mayor. floor mantiene la consigna en pasos enteros.
+        temperature: >-
+          {% set objetivo = states('input_number.climatizacion_tarde_temperatura_objetivo') | float(21) %}
+          {% set apagar = states('input_number.climatizacion_tarde_apagar_en') | float(21) %}
+          {{ ([objetivo, apagar] | min) | round(0, 'floor') }}
+        fan_mode: "{{ states('input_select.climatizacion_tarde_ventilador') if states('input_select.climatizacion_tarde_ventilador') in ['auto','low','medium','high'] else 'auto' }}"
+        force: "{{ force | default(false) | bool }}"
+
+climatizacion_apagar:
+  alias: "Climatización · Apagar ambos"
+  icon: mdi:power-off
+  mode: queued
+  max: 30
+  fields:
+    source:
+      description: "Origen lógico: auto, manual o recovery."
+    force:
+      description: "Si true, fuerza la transmisión aunque el modo ya esté comandado."
+  sequence:
+    - action: script.climatizacion_aplicar_estado
+      data:
+        source: "{{ source | default('auto', true) }}"
+        hvac_mode: "off"
+        force: "{{ force | default(false) | bool }}"
+
+climatizacion_retransmitir_estado_comandado:
+  alias: "Climatización · Retransmitir estado tras retorno de alimentación"
+  description: >-
+    Se usa exclusivamente ante un OFF→ON explícito del relé maestro. No entra en
+    RECOVERY ni recalcula la estrategia: espera a que IRIS+MIDEA estén disponibles
+    y retransmite una sola vez el último estado absoluto ya comandado.
+  icon: mdi:transmission-tower-export
+  mode: restart
+  sequence:
+    - condition: state
+      entity_id: input_boolean.climatizacion_config_inicializada
+      state: "on"
+    - wait_template: >-
+        {{ states('climate.aire_acondicionado_iris') not in ['unknown','unavailable','none','None',''] and
+           states('climate.aire_acondicionado_midea') not in ['unknown','unavailable','none','None',''] }}
+      timeout: "00:02:00"
+      continue_on_timeout: true
+    - condition: template
+      value_template: >-
+        {{ states('climate.aire_acondicionado_iris') not in ['unknown','unavailable','none','None',''] and
+           states('climate.aire_acondicionado_midea') not in ['unknown','unavailable','none','None',''] }}
+    - variables:
+        commanded_mode: "{{ states('input_select.climatizacion_modo_comandado') }}"
+        commanded_temperature: "{{ states('input_number.climatizacion_temperatura_comandada') | float(16) }}"
+        commanded_fan: >-
+          {{ states('input_select.climatizacion_ventilador_comandado')
+             if states('input_select.climatizacion_ventilador_comandado') in ['auto','low','medium','high']
+             else 'auto' }}
+        temperature_applicable: "{{ commanded_mode in ['heat','cool','auto'] }}"
+    - condition: template
+      value_template: "{{ commanded_mode in ['off','heat','cool','auto','dry','fan_only'] }}"
+    - action: script.climatizacion_aplicar_estado
+      data:
+        source: recovery
+        hvac_mode: "{{ commanded_mode }}"
+        temperature: "{{ commanded_temperature if temperature_applicable else none }}"
+        fan_mode: "{{ commanded_fan if commanded_mode != 'off' else none }}"
+        force: true
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.climatizacion_ultimo_evento
+      data:
+        value: >-
+          {{ 'Alimentación restaurada · retransmitido ' ~ commanded_mode | upper ~
+             ((' ' ~ (commanded_temperature | round(0) | int) ~ '°C') if temperature_applicable else '') }}
+
+
+climatizacion_entrar_fault:
+  alias: "Climatización · Entrar en FAULT"
+  description: >-
+    Pasa el controlador a FAULT. Si safe_off=true y el subsistema es actuable,
+    transmite un OFF seguro por la capa canónica; si falta un climate no actúa
+    sobre el equipo restante.
+  icon: mdi:alert-octagon-outline
+  mode: restart
+  fields:
+    reason:
+      description: "Motivo legible del FAULT."
+    safe_off:
+      description: "Si true, intenta OFF seguro solo cuando ambos climate son actuables."
+  sequence:
+    - variables:
+        fault_reason: "{{ reason | default('Fallo de climatización', true) }}"
+        request_safe_off: "{{ safe_off | default(false) | bool }}"
+        can_safe_off: >-
+          {{ states('climate.aire_acondicionado_iris') not in ['unknown','unavailable','none','None',''] and
+             states('climate.aire_acondicionado_midea') not in ['unknown','unavailable','none','None',''] }}
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.climatizacion_control_mode
+      data:
+        option: fault
+    - action: input_boolean.turn_off
+      target:
+        entity_id:
+          - input_boolean.climatizacion_sincronizado_sesion
+          - input_boolean.climatizacion_demanda_calor
+          - input_boolean.climatizacion_demanda_frio
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.climatizacion_ultimo_evento
+      data:
+        value: "{{ fault_reason }}"
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ request_safe_off and can_safe_off }}"
+          sequence:
+            - action: script.climatizacion_apagar
+              data:
+                source: recovery
+                force: true
+      default:
+        - action: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.climatizacion_estado_comandado
+        - action: input_select.select_option
+          target:
+            entity_id: input_select.climatizacion_modo_comandado
+          data:
+            option: unknown
+
+
+climatizacion_actualizar_memoria_termica:
+  alias: "Climatización · Actualizar memoria térmica diaria"
+  description: >-
+    Mantiene una fase persistente por perfil usando solo el sensor externo, los
+    umbrales y la fecha local. No cambia AUTO/MANUAL, no transmite IR y no usa
+    climate.* como feedback físico. La memoria de otro día nunca es válida. En
+    COOL, si no hay memoria válida y el sensor está dentro de la banda, inicia
+    esperando_alta: FRÍO solo se autoriza después de visitar el umbral alto.
+  icon: mdi:thermometer-sync
+  mode: queued
+  max: 20
+  fields:
+    allow_initialize:
+      description: "Si true, inicializa una fase nueva cuando la ventana activa no tiene memoria válida de hoy."
+  sequence:
+    - condition: state
+      entity_id: input_boolean.climatizacion_config_inicializada
+      state: "on"
+    - variables:
+        sensor_valid: >-
+          {{ states('sensor.climatizacion_temperatura_referencia') not in
+             ['unknown','unavailable','none','None',''] }}
+        sensor_temp: "{{ states('sensor.climatizacion_temperatura_referencia') | float(0) }}"
+        today_date: "{{ now().date() | string }}"
+        weekday_ok: "{{ now().weekday() in [0,1,2,3,4,5] }}"
+        calendar_allows_auto: "{{ is_state('binary_sensor.bloqueo_automatizaciones_laborales','off') }}"
+        morning_start: "{{ states('input_datetime.climatizacion_manana_inicio') }}"
+        morning_end: "{{ states('input_datetime.climatizacion_manana_fin') }}"
+        afternoon_start: "{{ states('input_datetime.climatizacion_tarde_inicio') }}"
+        afternoon_end: "{{ states('input_datetime.climatizacion_tarde_fin') }}"
+        morning_on: "{{ states('input_number.climatizacion_manana_encender_en') | float(20) }}"
+        morning_off: "{{ states('input_number.climatizacion_manana_apagar_en') | float(23) }}"
+        afternoon_on: "{{ states('input_number.climatizacion_tarde_encender_en') | float(24) }}"
+        afternoon_off: "{{ states('input_number.climatizacion_tarde_apagar_en') | float(21) }}"
+        times_known: >-
+          {{ morning_start not in ['unknown','unavailable','none','None',''] and
+             morning_end not in ['unknown','unavailable','none','None',''] and
+             afternoon_start not in ['unknown','unavailable','none','None',''] and
+             afternoon_end not in ['unknown','unavailable','none','None',''] }}
+        config_valid: >-
+          {{ (morning_on | float) < (morning_off | float) and
+             (afternoon_off | float) < (afternoon_on | float) and
+             times_known and morning_start < morning_end and
+             afternoon_start < afternoon_end and morning_end <= afternoon_start }}
+        morning_window: >-
+          {{ calendar_allows_auto and weekday_ok and times_known and
+             today_at(morning_start) <= now() < today_at(morning_end) }}
+        afternoon_window: >-
+          {{ calendar_allows_auto and weekday_ok and times_known and
+             today_at(afternoon_start) <= now() < today_at(afternoon_end) }}
+        initialize_missing: "{{ allow_initialize | default(true) | bool }}"
+    - condition: template
+      value_template: "{{ sensor_valid and config_valid }}"
+
+    # HEAT: alta alcanzada => OFF esperando baja; baja alcanzada => HEAT buscando alta.
+    - if:
+        - condition: template
+          value_template: >-
+            {{ morning_window and is_state('input_boolean.climatizacion_manana_activa','on') }}
+      then:
+        - variables:
+            morning_phase: "{{ states('input_select.climatizacion_manana_fase_termica') }}"
+            morning_phase_date: "{{ states('input_text.climatizacion_manana_fase_fecha') }}"
+            morning_phase_valid: >-
+              {{ morning_phase_date == today_date and
+                 morning_phase in ['buscando_alta','esperando_baja'] }}
+        - choose:
+            - conditions:
+                - condition: template
+                  value_template: "{{ sensor_temp >= (morning_off | float) }}"
+              sequence:
+                - action: input_select.select_option
+                  target:
+                    entity_id: input_select.climatizacion_manana_fase_termica
+                  data:
+                    option: esperando_baja
+                - action: input_text.set_value
+                  target:
+                    entity_id: input_text.climatizacion_manana_fase_fecha
+                  data:
+                    value: "{{ today_date }}"
+            - conditions:
+                - condition: template
+                  value_template: "{{ sensor_temp <= (morning_on | float) }}"
+              sequence:
+                - action: input_select.select_option
+                  target:
+                    entity_id: input_select.climatizacion_manana_fase_termica
+                  data:
+                    option: buscando_alta
+                - action: input_text.set_value
+                  target:
+                    entity_id: input_text.climatizacion_manana_fase_fecha
+                  data:
+                    value: "{{ today_date }}"
+            - conditions:
+                - condition: template
+                  value_template: "{{ initialize_missing and not morning_phase_valid }}"
+              sequence:
+                # Nuevo día dentro de banda: HEAT debe terminar primero el ciclo hacia alta.
+                - action: input_select.select_option
+                  target:
+                    entity_id: input_select.climatizacion_manana_fase_termica
+                  data:
+                    option: buscando_alta
+                - action: input_text.set_value
+                  target:
+                    entity_id: input_text.climatizacion_manana_fase_fecha
+                  data:
+                    value: "{{ today_date }}"
+
+    # COOL con memoria de visita alta: baja alcanzada => OFF esperando alta;
+    # alta alcanzada => COOL buscando baja. Sin memoria válida y dentro de banda,
+    # se inicia OFF/esperando_alta: la sola apertura horaria nunca autoriza FRÍO.
+    - if:
+        - condition: template
+          value_template: >-
+            {{ afternoon_window and is_state('input_boolean.climatizacion_tarde_activa','on') }}
+      then:
+        - variables:
+            afternoon_phase: "{{ states('input_select.climatizacion_tarde_fase_termica') }}"
+            afternoon_phase_date: "{{ states('input_text.climatizacion_tarde_fase_fecha') }}"
+            afternoon_phase_valid: >-
+              {{ afternoon_phase_date == today_date and
+                 afternoon_phase in ['buscando_baja','esperando_alta'] }}
+        - choose:
+            - conditions:
+                - condition: template
+                  value_template: "{{ sensor_temp <= (afternoon_off | float) }}"
+              sequence:
+                - action: input_select.select_option
+                  target:
+                    entity_id: input_select.climatizacion_tarde_fase_termica
+                  data:
+                    option: esperando_alta
+                - action: input_text.set_value
+                  target:
+                    entity_id: input_text.climatizacion_tarde_fase_fecha
+                  data:
+                    value: "{{ today_date }}"
+            - conditions:
+                - condition: template
+                  value_template: "{{ sensor_temp >= (afternoon_on | float) }}"
+              sequence:
+                - action: input_select.select_option
+                  target:
+                    entity_id: input_select.climatizacion_tarde_fase_termica
+                  data:
+                    option: buscando_baja
+                - action: input_text.set_value
+                  target:
+                    entity_id: input_text.climatizacion_tarde_fase_fecha
+                  data:
+                    value: "{{ today_date }}"
+            - conditions:
+                - condition: template
+                  value_template: "{{ initialize_missing and not afternoon_phase_valid }}"
+              sequence:
+                # Nuevo día dentro de banda: no existe evidencia de haber visitado
+                # la alta. Mantener OFF y exigir primero el umbral superior antes
+                # de autorizar un ciclo COOL hacia baja.
+                - action: input_select.select_option
+                  target:
+                    entity_id: input_select.climatizacion_tarde_fase_termica
+                  data:
+                    option: esperando_alta
+                - action: input_text.set_value
+                  target:
+                    entity_id: input_text.climatizacion_tarde_fase_fecha
+                  data:
+                    value: "{{ today_date }}"
+
+climatizacion_reconciliar:
+  alias: "Climatización · Reconciliar AUTO"
+  description: >-
+    Reconstruye la demanda de sesión desde temperatura, umbrales y fase térmica
+    persistente válida de hoy. baseline solo invalida la demanda operativa; nunca
+    borra la memoria térmica diaria. MANUAL conserva autoridad.
+  icon: mdi:sync
+  mode: restart
+  fields:
+    baseline:
+      description: "Si true, limpia demanda HEAT/COOL de sesión antes de reconstruirla desde la fase diaria."
+    force:
+      description: "Fuerza una resincronización IR deliberada."
+    source:
+      description: "Origen lógico de la orden final: auto o recovery."
+    reason:
+      description: "Diagnóstico opcional que se conserva si aporta contexto de RECOVERY."
+  sequence:
+    - condition: state
+      entity_id: input_boolean.climatizacion_config_inicializada
+      state: "on"
+
+    - variables:
+        iris_available: >-
+          {{ states('climate.aire_acondicionado_iris') not in ['unknown','unavailable','none','None',''] }}
+        midea_available: >-
+          {{ states('climate.aire_acondicionado_midea') not in ['unknown','unavailable','none','None',''] }}
+        sensor_valid: >-
+          {{ states('sensor.climatizacion_temperatura_referencia') not in ['unknown','unavailable','none','None',''] }}
+        sensor_temp: "{{ states('sensor.climatizacion_temperatura_referencia') | float(0) }}"
+        today_date: "{{ now().date() | string }}"
+        weekday_ok: "{{ now().weekday() in [0,1,2,3,4,5] }}"
+        calendar_allows_auto: "{{ is_state('binary_sensor.bloqueo_automatizaciones_laborales','off') }}"
+        morning_start: "{{ states('input_datetime.climatizacion_manana_inicio') }}"
+        morning_end: "{{ states('input_datetime.climatizacion_manana_fin') }}"
+        afternoon_start: "{{ states('input_datetime.climatizacion_tarde_inicio') }}"
+        afternoon_end: "{{ states('input_datetime.climatizacion_tarde_fin') }}"
+        morning_on: "{{ states('input_number.climatizacion_manana_encender_en') | float(20) }}"
+        morning_off: "{{ states('input_number.climatizacion_manana_apagar_en') | float(23) }}"
+        afternoon_on: "{{ states('input_number.climatizacion_tarde_encender_en') | float(24) }}"
+        afternoon_off: "{{ states('input_number.climatizacion_tarde_apagar_en') | float(21) }}"
+        times_known: >-
+          {{ morning_start not in ['unknown','unavailable','none','None',''] and
+             morning_end not in ['unknown','unavailable','none','None',''] and
+             afternoon_start not in ['unknown','unavailable','none','None',''] and
+             afternoon_end not in ['unknown','unavailable','none','None',''] }}
+        config_valid: >-
+          {{ (morning_on | float) < (morning_off | float) and
+             (afternoon_off | float) < (afternoon_on | float) and
+             times_known and
+             morning_start < morning_end and
+             afternoon_start < afternoon_end and
+             morning_end <= afternoon_start }}
+        morning_window: >-
+          {{ calendar_allows_auto and weekday_ok and times_known and
+             today_at(morning_start) <= now() < today_at(morning_end) }}
+        afternoon_window: >-
+          {{ calendar_allows_auto and weekday_ok and times_known and
+             today_at(afternoon_start) <= now() < today_at(afternoon_end) }}
+        reset_baseline: "{{ baseline | default(false) | bool }}"
+        force_send: "{{ force | default(false) | bool }}"
+        command_source: "{{ source | default('auto', true) | string | lower }}"
+        event_reason: "{{ reason | default('', true) }}"
+
+    - if:
+        - condition: template
+          value_template: "{{ not iris_available or not midea_available }}"
+      then:
+        - action: script.climatizacion_entrar_fault
+          data:
+            reason: "FAULT · IRIS + MIDEA no están disponibles como grupo"
+            safe_off: false
+        - stop: "Grupo climate no disponible."
+          error: false
+
+    - if:
+        - condition: template
+          value_template: "{{ not sensor_valid }}"
+      then:
+        - action: script.climatizacion_entrar_fault
+          data:
+            reason: "FAULT · sensor de Oficina general no disponible"
+            safe_off: true
+        - stop: "Sensor de referencia inválido."
+          error: false
+
+    - if:
+        - condition: template
+          value_template: "{{ not config_valid }}"
+      then:
+        - action: script.climatizacion_entrar_fault
+          data:
+            reason: "FAULT · configuración de horarios/umbrales incoherente"
+            safe_off: true
+        - stop: "Configuración térmica inválida."
+          error: false
+
+    # Repara límites físicos, valida fecha e inicializa un nuevo día si hace falta.
+    # Este paso no cambia la autoridad y por eso también es seguro en MANUAL.
+    - action: script.climatizacion_actualizar_memoria_termica
+      data:
+        allow_initialize: true
+
+    # MANUAL solo sale mediante crossing, boundary o Auto explícito. La fase ya
+    # quedó actualizada arriba, pero una reevaluación de nivel no cancela override.
+    - if:
+        - condition: template
+          value_template: "{{ is_state('input_select.climatizacion_control_mode','manual') }}"
+      then:
+        - stop: "MANUAL conserva autoridad; memoria térmica reconciliada sin actuar HVAC."
+          error: false
+
+    - if:
+        - condition: template
+          value_template: "{{ reset_baseline }}"
+      then:
+        - action: input_boolean.turn_off
+          target:
+            entity_id:
+              - input_boolean.climatizacion_demanda_calor
+              - input_boolean.climatizacion_demanda_frio
+
+    # La demanda operativa se reconstruye SIEMPRE desde una fase válida de hoy.
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: >-
+                {{ morning_window and is_state('input_boolean.climatizacion_manana_activa','on') }}
+          sequence:
+            - action: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.climatizacion_demanda_frio
+            - choose:
+                - conditions:
+                    - condition: template
+                      value_template: >-
+                        {{ states('input_text.climatizacion_manana_fase_fecha') == today_date and
+                           is_state('input_select.climatizacion_manana_fase_termica','buscando_alta') }}
+                  sequence:
+                    - action: input_boolean.turn_on
+                      target:
+                        entity_id: input_boolean.climatizacion_demanda_calor
+              default:
+                - action: input_boolean.turn_off
+                  target:
+                    entity_id: input_boolean.climatizacion_demanda_calor
+
+        - conditions:
+            - condition: template
+              value_template: >-
+                {{ afternoon_window and is_state('input_boolean.climatizacion_tarde_activa','on') }}
+          sequence:
+            - action: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.climatizacion_demanda_calor
+            - choose:
+                - conditions:
+                    - condition: template
+                      value_template: >-
+                        {{ states('input_text.climatizacion_tarde_fase_fecha') == today_date and
+                           is_state('input_select.climatizacion_tarde_fase_termica','buscando_baja') }}
+                  sequence:
+                    - action: input_boolean.turn_on
+                      target:
+                        entity_id: input_boolean.climatizacion_demanda_frio
+              default:
+                - action: input_boolean.turn_off
+                  target:
+                    entity_id: input_boolean.climatizacion_demanda_frio
+
+      default:
+        - action: input_boolean.turn_off
+          target:
+            entity_id:
+              - input_boolean.climatizacion_demanda_calor
+              - input_boolean.climatizacion_demanda_frio
+
+    - variables:
+        desired_state: >-
+          {% if morning_window and is_state('input_boolean.climatizacion_manana_activa','on') and
+                is_state('input_boolean.climatizacion_demanda_calor','on') %}
+            heat
+          {% elif afternoon_window and is_state('input_boolean.climatizacion_tarde_activa','on') and
+                  is_state('input_boolean.climatizacion_demanda_frio','on') %}
+            cool
+          {% else %}
+            off
+          {% endif %}
+
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ desired_state == 'heat' }}"
+          sequence:
+            - action: script.climatizacion_encender_calor
+              data:
+                source: "{{ command_source }}"
+                force: "{{ force_send }}"
+        - conditions:
+            - condition: template
+              value_template: "{{ desired_state == 'cool' }}"
+          sequence:
+            - action: script.climatizacion_encender_frio
+              data:
+                source: "{{ command_source }}"
+                force: "{{ force_send }}"
+      default:
+        - action: script.climatizacion_apagar
+          data:
+            source: "{{ command_source }}"
+            force: "{{ force_send }}"
+
+    # El diagnóstico específico de fase se escribe DESPUÉS de la orden canónica,
+    # para que climatizacion_aplicar_estado no lo tape con "orden absoluta ...".
+    - variables:
+        phase_event: >-
+          {% set src = command_source | upper %}
+          {% set t = sensor_temp | float %}
+          {% if morning_window and is_state('input_boolean.climatizacion_manana_activa','on') %}
+            {% set phase = states('input_select.climatizacion_manana_fase_termica') %}
+            {% if command_source == 'recovery' %}
+              {{ 'RECOVERY · HEAT restaurado · fase buscando alta válida de hoy'
+                 if phase == 'buscando_alta'
+                 else 'RECOVERY · OFF restaurado · fase esperando baja válida de hoy' }}
+            {% elif t >= (morning_off | float) %}
+              AUTO · umbral alto alcanzado · {{ t | round(1) }}°C · esperando baja
+            {% elif t <= (morning_on | float) %}
+              AUTO · umbral bajo alcanzado · {{ t | round(1) }}°C · buscando alta
+            {% elif phase == 'buscando_alta' %}
+              AUTO · HEAT · buscando alta · {{ t | round(1) }}°C < {{ morning_off | float | round(1) }}°C
+            {% else %}
+              AUTO · OFF · esperando baja · {{ t | round(1) }}°C > {{ morning_on | float | round(1) }}°C
+            {% endif %}
+          {% elif afternoon_window and is_state('input_boolean.climatizacion_tarde_activa','on') %}
+            {% set phase = states('input_select.climatizacion_tarde_fase_termica') %}
+            {% if command_source == 'recovery' %}
+              {{ 'RECOVERY · COOL restaurado · alta ya visitada · buscando baja'
+                 if phase == 'buscando_baja'
+                 else 'RECOVERY · OFF restaurado · esperando alta antes de autorizar FRÍO' }}
+            {% elif t >= (afternoon_on | float) %}
+              AUTO · umbral alto COOL alcanzado · {{ t | round(1) }}°C · buscando baja
+            {% elif t <= (afternoon_off | float) %}
+              AUTO · umbral bajo COOL alcanzado · {{ t | round(1) }}°C · esperando alta
+            {% elif phase == 'buscando_baja' %}
+              AUTO · COOL · buscando baja · {{ t | round(1) }}°C > {{ afternoon_off | float | round(1) }}°C
+            {% else %}
+              AUTO · OFF · esperando alta antes de autorizar FRÍO · {{ t | round(1) }}°C < {{ afternoon_on | float | round(1) }}°C
+            {% endif %}
+          {% else %}
+            {{ event_reason }}
+          {% endif %}
+        final_event: >-
+          {% set p = phase_event | trim %}
+          {% set r = event_reason | trim %}
+          {% if r == 'RECOVERY · memoria térmica de día anterior descartada' and p and r not in p %}
+            {{ r ~ ' · ' ~ (p | replace('RECOVERY · ', '', 1)) }}
+          {% elif p %}
+            {{ p }}
+          {% else %}
+            {{ r }}
+          {% endif %}
+    - if:
+        - condition: template
+          value_template: "{{ final_event | trim | length > 0 }}"
+      then:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.climatizacion_ultimo_evento
+          data:
+            value: "{{ final_event | trim }}"
+
+climatizacion_recuperar:
+  alias: "Climatización · RECOVERY → AUTO"
+  description: >-
+    Punto de sincronización tras arranque o recuperación de sensor/climates.
+    La telemetría del relé no bloquea esta rutina. Valida el subsistema durante
+    una ventana corta y transmite únicamente el estado final reconstruido.
+  icon: mdi:restart-alert
+  mode: restart
+  sequence:
+    - condition: state
+      entity_id: input_boolean.climatizacion_config_inicializada
+      state: "on"
+
+    # RECOVERY nunca hereda una demanda anterior de la sesión.
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.climatizacion_control_mode
+      data:
+        option: recovery
+    - action: input_boolean.turn_off
+      target:
+        entity_id:
+          - input_boolean.climatizacion_sincronizado_sesion
+          - input_boolean.climatizacion_estado_comandado
+          - input_boolean.climatizacion_demanda_calor
+          - input_boolean.climatizacion_demanda_frio
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.climatizacion_modo_comandado
+      data:
+        option: "off"
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.climatizacion_ultimo_evento
+      data:
+        value: "RECOVERY · esperando disponibilidad del subsistema"
+
+    # Esperar al grupo IR antes de reconstruir y transmitir el estado final.
+    - wait_template: >-
+        {{ states('climate.aire_acondicionado_iris') not in ['unknown','unavailable','none','None',''] and
+           states('climate.aire_acondicionado_midea') not in ['unknown','unavailable','none','None',''] }}
+      timeout: "00:02:00"
+      continue_on_timeout: true
+
+    - if:
+        - condition: template
+          value_template: >-
+            {{ states('climate.aire_acondicionado_iris') in ['unknown','unavailable','none','None',''] or
+               states('climate.aire_acondicionado_midea') in ['unknown','unavailable','none','None',''] }}
+      then:
+        - action: script.climatizacion_entrar_fault
+          data:
+            reason: "FAULT · IRIS + MIDEA no recuperaron disponibilidad"
+            safe_off: false
+        - stop: "RECOVERY sin grupo climate disponible."
+          error: false
+
+    - if:
+        - condition: template
+          value_template: >-
+            {{ states('sensor.climatizacion_temperatura_referencia') in
+               ['unknown','unavailable','none','None',''] }}
+      then:
+        - action: script.climatizacion_entrar_fault
+          data:
+            reason: "FAULT · sin datos del sensor de temperatura · automatizaciones de climatización pausadas"
+            safe_off: true
+        - stop: "RECOVERY sin sensor válido."
+          error: false
+
+    - variables:
+        morning_start: "{{ states('input_datetime.climatizacion_manana_inicio') }}"
+        morning_end: "{{ states('input_datetime.climatizacion_manana_fin') }}"
+        afternoon_start: "{{ states('input_datetime.climatizacion_tarde_inicio') }}"
+        afternoon_end: "{{ states('input_datetime.climatizacion_tarde_fin') }}"
+        today_date: "{{ now().date() | string }}"
+        morning_phase_date_before: "{{ states('input_text.climatizacion_manana_fase_fecha') }}"
+        afternoon_phase_date_before: "{{ states('input_text.climatizacion_tarde_fase_fecha') }}"
+        stale_memory_detected: >-
+          {{ (morning_phase_date_before | length == 10 and morning_phase_date_before != today_date) or
+             (afternoon_phase_date_before | length == 10 and afternoon_phase_date_before != today_date) }}
+        config_valid: >-
+          {{ (states('input_number.climatizacion_manana_encender_en') | float(20)) <
+             (states('input_number.climatizacion_manana_apagar_en') | float(23)) and
+             (states('input_number.climatizacion_tarde_apagar_en') | float(21)) <
+             (states('input_number.climatizacion_tarde_encender_en') | float(24)) and
+             morning_start not in ['unknown','unavailable','none','None',''] and
+             morning_end not in ['unknown','unavailable','none','None',''] and
+             afternoon_start not in ['unknown','unavailable','none','None',''] and
+             afternoon_end not in ['unknown','unavailable','none','None',''] and
+             morning_start < morning_end and afternoon_start < afternoon_end and
+             morning_end <= afternoon_start }}
+
+    - if:
+        - condition: template
+          value_template: "{{ not config_valid }}"
+      then:
+        - action: script.climatizacion_entrar_fault
+          data:
+            reason: "FAULT · configuración de horarios/umbrales incoherente"
+            safe_off: true
+        - stop: "RECOVERY con configuración inválida."
+          error: false
+
+    # No se envía un OFF de baseline: RECOVERY transmite solo el estado final.
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.climatizacion_ultimo_evento
+      data:
+        value: "RECOVERY · validando sensor durante 2 s"
+
+    # Ventana corta de asentamiento. NO se reinicia por cada nueva lectura válida:
+    # el sensor puede actualizar 22.0→22.1→22.2 y RECOVERY concluye igualmente a
+    # los 2 s. La disponibilidad se vuelve a validar justo después de la espera.
+    - delay: "00:00:02"
+
+    - if:
+        - condition: template
+          value_template: >-
+            {{ states('climate.aire_acondicionado_iris') in ['unknown','unavailable','none','None',''] or
+               states('climate.aire_acondicionado_midea') in ['unknown','unavailable','none','None',''] }}
+      then:
+        - action: script.climatizacion_entrar_fault
+          data:
+            reason: "FAULT · IRIS + MIDEA no disponibles tras estabilización"
+            safe_off: false
+        - stop: "Grupo climate perdido durante estabilización."
+          error: false
+
+    - if:
+        - condition: template
+          value_template: >-
+            {{ states('sensor.climatizacion_temperatura_referencia') in
+               ['unknown','unavailable','none','None',''] }}
+      then:
+        - action: script.climatizacion_entrar_fault
+          data:
+            reason: "FAULT · sin datos del sensor de temperatura · automatizaciones de climatización pausadas"
+            safe_off: true
+        - stop: "Sensor perdido durante estabilización."
+          error: false
+
+    # Si otro mecanismo ya cambió la autoridad (FAULT, por ejemplo), este RECOVERY
+    # no puede sobrescribirlo.
+    - condition: state
+      entity_id: input_select.climatizacion_control_mode
+      state: recovery
+
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.climatizacion_control_mode
+      data:
+        option: auto
+
+    # baseline=true invalida únicamente las demandas de sesión. La reconciliación
+    # reconstruye HEAT/COOL desde la fase persistente si su fecha es la de hoy.
+    - action: script.climatizacion_reconciliar
+      data:
+        baseline: true
+        force: true
+        source: recovery
+        reason: >-
+          {{ 'RECOVERY · memoria térmica de día anterior descartada'
+             if stale_memory_detected else '' }}
+
+    - if:
+        - condition: state
+          entity_id: input_select.climatizacion_control_mode
+          state: auto
+      then:
+        - action: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.climatizacion_sincronizado_sesion
+
+climatizacion_volver_auto:
+  alias: "Climatización · Volver a automático"
+  description: >-
+    Devuelve explícitamente la autoridad al controlador y reconcilia de
+    inmediato. La demanda de sesión se reconstruye desde la fase válida de hoy.
+  icon: mdi:autorenew
+  mode: restart
+  sequence:
+    - condition: state
+      entity_id: input_boolean.climatizacion_sincronizado_sesion
+      state: "on"
+    - condition: template
+      value_template: >-
+        {{ states('climate.aire_acondicionado_iris') not in ['unknown','unavailable','none','None',''] and
+           states('climate.aire_acondicionado_midea') not in ['unknown','unavailable','none','None',''] }}
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.climatizacion_control_mode
+      data:
+        option: auto
+    - action: input_boolean.turn_off
+      target:
+        entity_id:
+          - input_boolean.climatizacion_demanda_calor
+          - input_boolean.climatizacion_demanda_frio
+    - action: script.climatizacion_reconciliar
+      data:
+        baseline: true
+        force: true
+        source: auto
+        reason: "Control automático retomado · solicitud explícita del usuario"
+
+climatizacion_inicio_manana:
+  alias: "Climatización · Boundary inicio mañana"
+  description: >-
+    El inicio horario abre la ventana y ejecuta RECOVERY con 2 s de estabilidad.
+    Si no existe memoria válida de hoy, inicializa el ciclo térmico determinista.
+  icon: mdi:weather-sunset-up
+  mode: restart
+  sequence:
+    - condition: state
+      entity_id: input_boolean.climatizacion_manana_activa
+      state: "on"
+    - condition: state
+      entity_id: binary_sensor.bloqueo_automatizaciones_laborales
+      state: "off"
+    - action: script.climatizacion_recuperar
+
+climatizacion_inicio_tarde:
+  alias: "Climatización · Boundary inicio tarde"
+  description: >-
+    El inicio horario abre la ventana y ejecuta RECOVERY con 2 s de estabilidad.
+    Si no existe memoria válida de hoy, inicializa el ciclo térmico determinista.
+  icon: mdi:weather-sunset-down
+  mode: restart
+  sequence:
+    - condition: state
+      entity_id: input_boolean.climatizacion_tarde_activa
+      state: "on"
+    - condition: state
+      entity_id: binary_sensor.bloqueo_automatizaciones_laborales
+      state: "off"
+    - action: script.climatizacion_recuperar
+
+climatizacion_fin_ventana:
+  alias: "Climatización · Hard stop de ventana"
+  icon: mdi:clock-end
+  mode: restart
+  fields:
+    period:
+      description: "manana o tarde."
+  sequence:
+    - variables:
+        requested_period: "{{ period | default('tarde', true) | string | lower }}"
+        routine_enabled: >-
+          {{ is_state('input_boolean.climatizacion_manana_activa','on') if requested_period == 'manana'
+             else is_state('input_boolean.climatizacion_tarde_activa','on') }}
+        command_source: >-
+          {{ 'auto' if is_state('input_boolean.climatizacion_sincronizado_sesion','on') else 'recovery' }}
+    - condition: template
+      value_template: "{{ routine_enabled }}"
+    - condition: template
+      value_template: >-
+        {{ states('input_select.climatizacion_control_mode') in ['auto','manual'] }}
+    - if:
+        - condition: template
+          value_template: >-
+            {{ states('climate.aire_acondicionado_iris') in ['unknown','unavailable','none','None',''] or
+               states('climate.aire_acondicionado_midea') in ['unknown','unavailable','none','None',''] }}
+      then:
+        - action: script.climatizacion_entrar_fault
+          data:
+            reason: "FAULT · hard stop sin IRIS+MIDEA disponibles"
+            safe_off: false
+        - stop: "Hard stop sin grupo climate."
+          error: false
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.climatizacion_control_mode
+      data:
+        option: auto
+    - action: input_boolean.turn_off
+      target:
+        entity_id:
+          - input_boolean.climatizacion_demanda_calor
+          - input_boolean.climatizacion_demanda_frio
+    - action: script.climatizacion_apagar
+      data:
+        source: "{{ command_source }}"
+        force: true
+    - action: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.climatizacion_sincronizado_sesion
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.climatizacion_ultimo_evento
+      data:
+        value: >-
+          {{ 'Fin de rutina de mañana · climatización apagada'
+             if requested_period == 'manana'
+             else 'Fin de rutina de tarde · climatización apagada' }}
+
+climatizacion_recuperar_por_crossing:
+  alias: "Climatización · Recuperar AUTO por crossing"
+  description: >-
+    Solo debe llamarse ante un edge térmico verificado por la automatización.
+    Cambia MANUAL→AUTO y aplica la nueva demanda, sin inferir eventos por nivel.
+  icon: mdi:chart-timeline-variant-shimmer
+  mode: restart
+  fields:
+    event:
+      description: "heat_on, heat_off, cool_on o cool_off."
+  sequence:
+    - condition: state
+      entity_id: input_select.climatizacion_control_mode
+      state: manual
+    - condition: state
+      entity_id: binary_sensor.bloqueo_automatizaciones_laborales
+      state: "off"
+    - condition: state
+      entity_id: input_boolean.climatizacion_sincronizado_sesion
+      state: "on"
+    - variables:
+        crossing_event: "{{ event | default('', true) | string | lower }}"
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.climatizacion_control_mode
+      data:
+        option: auto
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ crossing_event == 'heat_on' }}"
+          sequence:
+            - action: input_select.select_option
+              target:
+                entity_id: input_select.climatizacion_manana_fase_termica
+              data:
+                option: buscando_alta
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.climatizacion_manana_fase_fecha
+              data:
+                value: "{{ now().date() | string }}"
+            - action: input_boolean.turn_on
+              target:
+                entity_id: input_boolean.climatizacion_demanda_calor
+            - action: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.climatizacion_demanda_frio
+            - action: script.climatizacion_encender_calor
+              data:
+                source: auto
+                force: false
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.climatizacion_ultimo_evento
+              data:
+                value: "AUTO · umbral bajo alcanzado · buscando alta · MANUAL→AUTO"
+
+        - conditions:
+            - condition: template
+              value_template: "{{ crossing_event == 'heat_off' }}"
+          sequence:
+            - action: input_select.select_option
+              target:
+                entity_id: input_select.climatizacion_manana_fase_termica
+              data:
+                option: esperando_baja
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.climatizacion_manana_fase_fecha
+              data:
+                value: "{{ now().date() | string }}"
+            - action: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.climatizacion_demanda_calor
+            - action: script.climatizacion_apagar
+              data:
+                source: auto
+                force: false
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.climatizacion_ultimo_evento
+              data:
+                value: "AUTO · umbral alto alcanzado · esperando baja · MANUAL→AUTO"
+
+        - conditions:
+            - condition: template
+              value_template: "{{ crossing_event == 'cool_on' }}"
+          sequence:
+            - action: input_select.select_option
+              target:
+                entity_id: input_select.climatizacion_tarde_fase_termica
+              data:
+                option: buscando_baja
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.climatizacion_tarde_fase_fecha
+              data:
+                value: "{{ now().date() | string }}"
+            - action: input_boolean.turn_on
+              target:
+                entity_id: input_boolean.climatizacion_demanda_frio
+            - action: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.climatizacion_demanda_calor
+            - action: script.climatizacion_encender_frio
+              data:
+                source: auto
+                force: false
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.climatizacion_ultimo_evento
+              data:
+                value: "AUTO · umbral alto COOL alcanzado · buscando baja · MANUAL→AUTO"
+
+        - conditions:
+            - condition: template
+              value_template: "{{ crossing_event == 'cool_off' }}"
+          sequence:
+            - action: input_select.select_option
+              target:
+                entity_id: input_select.climatizacion_tarde_fase_termica
+              data:
+                option: esperando_alta
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.climatizacion_tarde_fase_fecha
+              data:
+                value: "{{ now().date() | string }}"
+            - action: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.climatizacion_demanda_frio
+            - action: script.climatizacion_apagar
+              data:
+                source: auto
+                force: false
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.climatizacion_ultimo_evento
+              data:
+                value: "AUTO · umbral bajo COOL alcanzado · esperando alta · MANUAL→AUTO"
+      default:
+        - stop: "Crossing no reconocido."
+          error: false
