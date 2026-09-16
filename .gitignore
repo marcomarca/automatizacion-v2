@@ -4,6 +4,9 @@ node_modules/
 # Production build output
 dist/
 
+# Zip files and archives
+*.zip
+
 # Logs
 *.log
 npm-debug.log*
