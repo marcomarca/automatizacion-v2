@@ -7,6 +7,7 @@ import { allMockNotifications } from "../mocks/notifications";
 import { allMockProducts } from "../mocks/products";
 import { allScenarios, normalDayScenario } from "../mocks/scenarios";
 import { allMockScenes } from "../mocks/scenes";
+import { showroom24hBaselineProfile } from "../mocks/history/showroom-telemetry.history";
 import type {
   Building,
   DevicePowerState,
@@ -114,6 +115,7 @@ export class DemoEngine {
 
     this.clock = new DemoClock(initialTime);
     this.initDomainEntities();
+    this.restoreSessionState();
     this.buildingState = this.buildInitialBuilding(initialScenario);
     this.energyState = this.buildInitialEnergy(initialScenario);
     this.activities = this.buildInitialActivities();
@@ -155,6 +157,76 @@ export class DemoEngine {
     }
 
     this.printJobsList = [];
+  }
+
+  private saveSessionState(): void {
+    try {
+      if (typeof window !== "undefined" && window.sessionStorage) {
+        const state = {
+          devices: Array.from(this.devicesMap.values()).map((d) => ({
+            id: d.id,
+            powerState: d.powerState,
+            brightnessPct: d.brightnessPct,
+            actualPowerW: d.actualPowerW,
+          })),
+          automations: Array.from(this.automationsMap.values()).map((a) => ({
+            id: a.id,
+            enabled: a.enabled,
+          })),
+        };
+        window.sessionStorage.setItem("witmind_engine_session_state", JSON.stringify(state));
+      }
+    } catch (_e) {
+      // Ignore storage errors in restricted contexts
+    }
+  }
+
+  private restoreSessionState(): void {
+    try {
+      if (typeof window !== "undefined" && window.sessionStorage) {
+        const raw = window.sessionStorage.getItem("witmind_engine_session_state");
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.devices)) {
+          for (const item of parsed.devices) {
+            const dev = this.devicesMap.get(item.id);
+            if (dev) {
+              const updated: MockDevice = {
+                ...dev,
+                powerState: item.powerState,
+                brightnessPct: item.brightnessPct,
+                actualPowerW: item.actualPowerW,
+              };
+              this.devicesMap.set(item.id, updated);
+              this.syncDeviceToZone(updated);
+            }
+          }
+        }
+        if (Array.isArray(parsed.automations)) {
+          for (const item of parsed.automations) {
+            const auto = this.automationsMap.get(item.id);
+            if (auto) {
+              this.automationsMap.set(item.id, { ...auto, enabled: item.enabled });
+            }
+          }
+        }
+      }
+    } catch (_e) {
+      // Ignore parse errors
+    }
+  }
+
+  public resetSessionState(): void {
+    try {
+      if (typeof window !== "undefined" && window.sessionStorage) {
+        window.sessionStorage.removeItem("witmind_engine_session_state");
+      }
+    } catch (_e) {
+      // Ignore
+    }
+    this.initDomainEntities();
+    this.recalculateBuildingEnergy(1);
+    this.notify();
   }
 
   public setCurves(curves: PhysicalCurve[]): void {
@@ -315,6 +387,7 @@ export class DemoEngine {
 
     // Recalculate energy
     this.recalculateBuildingEnergy(1);
+    this.saveSessionState();
     this.notify();
   }
 
@@ -349,6 +422,7 @@ export class DemoEngine {
     this.notifyActivity(act);
 
     this.recalculateBuildingEnergy(1);
+    this.saveSessionState();
     this.notify();
   }
 
@@ -372,6 +446,7 @@ export class DemoEngine {
     this.notifyActivity(act);
 
     this.recalculateBuildingEnergy(1);
+    this.saveSessionState();
     this.notify();
   }
 
@@ -395,6 +470,7 @@ export class DemoEngine {
     this.notifyActivity(act);
 
     this.recalculateBuildingEnergy(1);
+    this.saveSessionState();
     this.notify();
   }
 
@@ -422,6 +498,7 @@ export class DemoEngine {
     this.notifyActivity(act);
 
     this.recalculateBuildingEnergy(1);
+    this.saveSessionState();
     this.notify();
   }
 
@@ -449,6 +526,7 @@ export class DemoEngine {
     this.notifyActivity(act);
 
     this.recalculateBuildingEnergy(1);
+    this.saveSessionState();
     this.notify();
   }
 
@@ -490,6 +568,7 @@ export class DemoEngine {
     this.notifyActivity(act);
 
     this.recalculateBuildingEnergy(1);
+    this.saveSessionState();
     this.notify();
   }
 
@@ -530,6 +609,7 @@ export class DemoEngine {
     });
     this.activities.unshift(act);
     this.notifyActivity(act);
+    this.saveSessionState();
     this.notify();
   }
 
@@ -571,6 +651,7 @@ export class DemoEngine {
     });
     this.activities.unshift(act);
     this.notifyActivity(act);
+    this.saveSessionState();
     this.notify();
   }
 
@@ -1209,6 +1290,23 @@ export class DemoEngine {
 
   private initHistory(): void {
     this.history = [];
+    const initialDate = this.clock.now();
+    for (let i = 23; i >= 1; i--) {
+      const pastTime = new Date(initialDate.getTime() - i * 3600 * 1000);
+      const pastHour = pastTime.getUTCHours();
+      const profile = showroom24hBaselineProfile.find((p) => p.hour === pastHour);
+      const avgW = profile?.avgPowerW || 0;
+      const hourStr = `${String(pastHour).padStart(2, "0")}:00`;
+      this.history.push({
+        time: hourStr,
+        baselineKwh: Number(Math.max(0, this.energyState.energyBaselineKwh - i * 0.4).toFixed(3)),
+        actualKwh: Number(Math.max(0, this.energyState.energyActualKwh - i * 0.25).toFixed(3)),
+        daylightLux: pastHour >= 7 && pastHour <= 18 ? 250 : 0,
+        brightness: avgW > 0 ? Math.round((avgW / 1395) * 100) : 0,
+        temperature: 23.0,
+        fixturePowerW: avgW,
+      });
+    }
     this.recordHistorySnapshot();
   }
 

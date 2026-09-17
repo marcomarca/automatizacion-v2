@@ -40,7 +40,7 @@ export class AppShell extends LitElement {
         return html`
           <space-view
             .spaceId=${this.currentRoute.spaceId}
-            .activeSection=${this.currentRoute.section || "overview"}
+            .section=${this.currentRoute.section || "overview"}
           ></space-view>
         `;
 
@@ -93,9 +93,9 @@ export class AppShell extends LitElement {
 
   render() {
     return html`
-      <div>
+      <div class="app-container">
         <app-nav .currentRoute=${this.currentRoute}></app-nav>
-        <main>
+        <main class="main-content">
           ${this.renderCurrentView()}
         </main>
       </div>

@@ -1,5 +1,10 @@
 import type { MockDevice } from "../../models/device";
 
+/**
+ * Showroom Mock Devices — Calibrados exactamente con la configuración lógica
+ * extraída de Home Assistant (sensor.showroom_potencia_estimada).
+ * Potencia total instalada conocida: 1395 W (9 circuitos).
+ */
 export const showroomDevices: MockDevice[] = [
   {
     id: "showroom.spots-window",
@@ -9,7 +14,7 @@ export const showroomDevices: MockDevice[] = [
     zoneId: "showroom-spots-window",
     powerState: "off",
     brightnessPct: 0,
-    nominalPowerW: 80,
+    nominalPowerW: 100, // 100 W en Home Assistant
     actualPowerW: 0,
     available: true,
     metadata: {
@@ -24,7 +29,7 @@ export const showroomDevices: MockDevice[] = [
     zoneId: "showroom-spots-2x3",
     powerState: "off",
     brightnessPct: 0,
-    nominalPowerW: 120,
+    nominalPowerW: 120, // 120 W en Home Assistant
     actualPowerW: 0,
     available: true,
     metadata: {
@@ -39,7 +44,7 @@ export const showroomDevices: MockDevice[] = [
     zoneId: "showroom-spots-3x3",
     powerState: "off",
     brightnessPct: 0,
-    nominalPowerW: 180,
+    nominalPowerW: 180, // 180 W en Home Assistant
     actualPowerW: 0,
     available: true,
     metadata: {
@@ -54,7 +59,7 @@ export const showroomDevices: MockDevice[] = [
     zoneId: "showroom-spots-tv",
     powerState: "off",
     brightnessPct: 0,
-    nominalPowerW: 60,
+    nominalPowerW: 25, // 25 W en Home Assistant
     actualPowerW: 0,
     available: true,
     metadata: {
@@ -69,7 +74,7 @@ export const showroomDevices: MockDevice[] = [
     zoneId: "showroom-panels-3k6k",
     powerState: "off",
     brightnessPct: 0,
-    nominalPowerW: 96,
+    nominalPowerW: 96, // 96 W en Home Assistant
     actualPowerW: 0,
     available: true,
     metadata: {
@@ -84,7 +89,7 @@ export const showroomDevices: MockDevice[] = [
     zoneId: "showroom-pendants",
     powerState: "off",
     brightnessPct: 0,
-    nominalPowerW: 70,
+    nominalPowerW: 10, // 10 W en Home Assistant
     actualPowerW: 0,
     available: true,
     metadata: {
@@ -99,7 +104,7 @@ export const showroomDevices: MockDevice[] = [
     zoneId: "showroom-slims",
     powerState: "off",
     brightnessPct: 0,
-    nominalPowerW: 45,
+    nominalPowerW: 432, // 432 W en Home Assistant
     actualPowerW: 0,
     available: true,
     metadata: {
@@ -114,7 +119,7 @@ export const showroomDevices: MockDevice[] = [
     zoneId: "showroom-downlights",
     powerState: "off",
     brightnessPct: 0,
-    nominalPowerW: 100,
+    nominalPowerW: 144, // 144 W en Home Assistant
     actualPowerW: 0,
     available: true,
     metadata: {
@@ -123,17 +128,32 @@ export const showroomDevices: MockDevice[] = [
   },
   {
     id: "showroom.panels",
-    name: "Paneles Backlit",
+    name: "Paneles",
     kind: "light",
     spaceId: "showroom",
     zoneId: "showroom-panels",
     powerState: "off",
     brightnessPct: 0,
-    nominalPowerW: 150,
+    nominalPowerW: 288, // 288 W en Home Assistant (Relé 4)
     actualPowerW: 0,
     available: true,
     metadata: {
       legacyHomeAssistantEntityId: "switch.smart_relay_switch_4_switch",
+    },
+  },
+  {
+    id: "showroom.reflector",
+    name: "Reflector exterior",
+    kind: "light",
+    spaceId: "showroom",
+    zoneId: "showroom-reflector",
+    powerState: "off",
+    brightnessPct: 0,
+    nominalPowerW: 0, // En HA queda fuera del cálculo de potencia conocida
+    actualPowerW: 0,
+    available: true,
+    metadata: {
+      legacyHomeAssistantEntityId: "switch.smart_relay_switch_3_switch",
     },
   },
 ];

@@ -110,6 +110,11 @@ export class AppNav extends LitElement {
             ${route.kind === "mock-lab" ? html`<strong>[ 🧪 Mock Lab ]</strong>` : "🧪 Mock Lab"}
           </a>
         </p>
+        <p>
+          <a href="/showroom.html" target="_blank" title="Abrir réplica exacta del panel Showroom de Home Assistant">
+            <span>🎛️ Panel Showroom (Test) ↗</span>
+          </a>
+        </p>
       </nav>
     `;
   }
