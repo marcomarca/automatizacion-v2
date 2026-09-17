@@ -22,7 +22,20 @@ Thumbs.db
 *.swp
 *.swo
 
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Custom components (ejemplo-guia) - Only track internal components
+ejemplo-guia/custom_components/*
+!ejemplo-guia/custom_components/calendario_laboral
+!ejemplo-guia/custom_components/calendario_laboral/**
+!ejemplo-guia/custom_components/witmind_notifications
+!ejemplo-guia/custom_components/witmind_notifications/**
+
 # Environment variables
 .env
 .env.local
 .env.*.local
+
