@@ -12,3 +12,4 @@ export * from "./notification.store";
 export * from "./calendar.store";
 export * from "./print.store";
 export * from "./product.store";
+export * from "./appearance.store";

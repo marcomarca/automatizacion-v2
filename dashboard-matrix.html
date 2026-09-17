@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Witmind SCADA — Terminal de Matriz Industrial</title>
+    <style>
+      *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --bg-main: #020617;
+        --bg-panel: #050e1d;
+        --bg-subtle: #08162d;
+        --border-color: #064e3b;
+        --border-active: #059669;
+        --emerald-hud: #10b981;
+        --emerald-glow: #34d399;
+        --amber-alert: #f59e0b;
+        --text-primary: #ecfdf5;
+        --text-secondary: #a7f3d0;
+        --text-muted: #6ee7b7;
+      }
+      html, body {
+        width: 100%;
+        min-height: 100vh;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        background-color: var(--bg-main);
+        color: var(--text-primary);
+        line-height: 1.4;
+      }
+
+      /* Barra Superior de Navegación de Versiones */
+      .version-bar {
+        background: #030a16;
+        border-bottom: 1px solid var(--border-color);
+        padding: 8px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+      }
+      .brand-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+        font-size: 13px;
+        color: var(--emerald-glow);
+        letter-spacing: 0.05em;
+      }
+      .version-nav {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .version-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 700;
+        text-decoration: none;
+        color: var(--text-secondary);
+        background: var(--bg-panel);
+        border: 1px solid var(--border-color);
+        transition: all 0.15s ease;
+      }
+      .version-link:hover {
+        background: var(--bg-subtle);
+        border-color: var(--emerald-hud);
+        color: #ffffff;
+      }
+      .version-link.active {
+        background: var(--emerald-hud);
+        color: #020617;
+        border-color: var(--emerald-hud);
+        box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+      }
+
+      /* Layout SCADA */
+      .scada-layout {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .hud-header {
+        border: 1px solid var(--border-color);
+        background: var(--bg-panel);
+        padding: 12px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        background-image: linear-gradient(rgba(16, 185, 129, 0.03) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(16, 185, 129, 0.03) 1px, transparent 1px);
+        background-size: 16px 16px;
+      }
+      .hud-title {
+        font-size: 14px;
+        font-weight: 800;
+        color: var(--emerald-glow);
+        letter-spacing: 0.05em;
+      }
+      .hud-stats {
+        display: flex;
+        gap: 16px;
+        font-size: 12px;
+      }
+      .hud-stat-val {
+        color: #ffffff;
+        font-weight: 700;
+      }
+
+      /* Matriz Grid */
+      .grid-scada {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 16px;
+      }
+      @media (max-width: 1024px) {
+        .grid-scada { grid-template-columns: 1fr; }
+      }
+
+      .scada-panel {
+        background: var(--bg-panel);
+        border: 1px solid var(--border-color);
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .scada-panel-header {
+        font-size: 12px;
+        font-weight: 800;
+        color: var(--emerald-hud);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 6px;
+        display: flex;
+        justify-content: space-between;
+      }
+
+      /* Tabla Matriz de Relés */
+      table.scada-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+      }
+      table.scada-table th {
+        text-align: left;
+        padding: 6px 8px;
+        background: var(--bg-subtle);
+        color: var(--text-muted);
+        border: 1px solid var(--border-color);
+        font-weight: 700;
+      }
+      table.scada-table td {
+        padding: 8px;
+        border: 1px solid var(--border-color);
+      }
+      table.scada-table tr:hover td {
+        background: var(--bg-subtle);
+      }
+
+      .status-tag {
+        display: inline-block;
+        padding: 2px 6px;
+        font-size: 10px;
+        font-weight: 800;
+        border-radius: 2px;
+      }
+      .status-tag.on {
+        background: rgba(16, 185, 129, 0.2);
+        color: var(--emerald-glow);
+        border: 1px solid var(--emerald-hud);
+      }
+      .status-tag.off {
+        background: rgba(100, 116, 139, 0.2);
+        color: #94a3b8;
+        border: 1px solid #334155;
+      }
+
+      .btn-toggle {
+        padding: 3px 8px;
+        font-size: 10px;
+        font-family: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        border: 1px solid var(--border-color);
+        background: var(--bg-subtle);
+        color: var(--text-primary);
+      }
+      .btn-toggle:hover {
+        background: var(--emerald-hud);
+        color: #020617;
+      }
+
+      /* Log Stream */
+      .scada-log {
+        background: #01040a;
+        border: 1px solid var(--border-color);
+        padding: 10px;
+        height: 240px;
+        overflow-y: auto;
+        font-size: 11px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .log-entry {
+        color: var(--text-secondary);
+      }
+      .log-entry.alert {
+        color: var(--amber-alert);
+      }
+      .log-time {
+        color: var(--text-muted);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Barra Superior de Navegación de Versiones HTML -->
+    <header class="version-bar">
+      <div class="brand-title">
+        <span>[SCADA-TERMINAL-01]</span>
+        <span>WITMIND INDUSTRIAL MATRIX</span>
+      </div>
+      <nav class="version-nav">
+        <span style="font-size: 10px; color: var(--text-muted); font-weight: 700;">VERSIONES HTML:</span>
+        <a href="/dashboard-bms.html" class="version-link">🌌 BMS Dark</a>
+        <a href="/showroom.html" class="version-link">🎛️ Lovelace HA</a>
+        <a href="/dashboard-matrix.html" class="version-link active">📟 SCADA Matrix</a>
+        <a href="/dashboard-exec.html" class="version-link">☀️ Executive Light</a>
+        <a href="/#/overview" class="version-link">⚡ App Shell SPA ↗</a>
+      </nav>
+    </header>
+
+    <main class="scada-layout">
+      <!-- HUD Telemetry Header -->
+      <div class="hud-header">
+        <div class="hud-title">
+          <span>&gt; MATRIZ DE TELEMETRÍA DE CIRCUITOS [SHOWROOM HQ]</span>
+        </div>
+        <div class="hud-stats">
+          <div>POTENCIA TOTAL: <span class="hud-stat-val" id="hudWatts">432 W</span> / 1395 W</div>
+          <div>ENERGÍA: <span class="hud-stat-val" id="hudKwh">26.11 kWh</span></div>
+          <div>CIRCUITOS ON: <span class="hud-stat-val" id="hudCount">4/9</span></div>
+        </div>
+      </div>
+
+      <div class="grid-scada">
+        <!-- Matriz de Relés y Dispositivos -->
+        <div class="scada-panel">
+          <div class="scada-panel-header">
+            <span>REGISTRO DE RELÉS Y CARGAS LÓGICAS</span>
+            <span>FREQ: 50.0 Hz | 234.6 V</span>
+          </div>
+
+          <table class="scada-table">
+            <thead>
+              <tr>
+                <th>TAG ID</th>
+                <th>NOMBRE CIRCUITO</th>
+                <th>POT. NOMINAL</th>
+                <th>ESTADO ACTUAL</th>
+                <th>ACCIÓN</th>
+              </tr>
+            </thead>
+            <tbody id="scadaTableBody">
+              <!-- Renderizado de filas -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Terminal de Eventos en Vivo -->
+        <div class="scada-panel">
+          <div class="scada-panel-header">
+            <span>TELEMETRÍA EN TIEMPO REAL & EVENTOS</span>
+            <span>STATUS: OK</span>
+          </div>
+
+          <div class="scada-log" id="scadaLog">
+            <div class="log-entry"><span class="log-time">[12:45:00]</span> [SYS] Conexión establecida con bus de telemetría HA.</div>
+            <div class="log-entry"><span class="log-time">[12:45:02]</span> [CAL] Base nominal verificada: 1395 W across 9 circuits.</div>
+            <div class="log-entry"><span class="log-time">[12:45:10]</span> [AUTO] Daylight harvesting loop active (ambient lux = 280).</div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      const circuits = [
+        { id: "SW-01", name: "Spots ventana", watts: 100, entity: "switch.interruptor_inteligente_switch_1", state: "on" },
+        { id: "SW-02", name: "Spots 2×3", watts: 120, entity: "switch.interruptor_inteligente_switch_2", state: "on" },
+        { id: "SW-03", name: "Spots 3×3", watts: 180, entity: "switch.interruptor_inteligente_switch_3", state: "off" },
+        { id: "SW-04", name: "Spots TV", watts: 25, entity: "switch.interruptor_inteligente_switch_4", state: "on" },
+        { id: "SW-05", name: "Paneles 3k/6k", watts: 96, entity: "switch.interruptor_inteligente_2_switch_1", state: "off" },
+        { id: "SW-06", name: "Colgantes", watts: 10, entity: "switch.interruptor_inteligente_2_switch_2", state: "off" },
+        { id: "SW-07", name: "Slims", watts: 432, entity: "switch.interruptor_inteligente_2_switch_3", state: "on" },
+        { id: "SW-08", name: "Downlights", watts: 144, entity: "switch.interruptor_inteligente_2_switch_4", state: "off" },
+        { id: "SW-09", name: "Paneles (Relé 4)", watts: 288, entity: "switch.smart_relay_switch_4_switch", state: "off" }
+      ];
+
+      // Restaurar estado de sessionStorage si existe
+      try {
+        const cached = window.sessionStorage.getItem("witmind_showroom_mock_states");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          circuits.forEach(c => {
+            if (parsed[c.entity]) c.state = parsed[c.entity].state;
+          });
+        }
+      } catch (_e) {}
+
+      function saveStates() {
+        try {
+          const current = {};
+          circuits.forEach(c => {
+            current[c.entity] = { entity_id: c.entity, state: c.state };
+          });
+          window.sessionStorage.setItem("witmind_showroom_mock_states", JSON.stringify(current));
+        } catch (_e) {}
+      }
+
+      function logEvent(msg, isAlert = false) {
+        const log = document.getElementById("scadaLog");
+        const entry = document.createElement("div");
+        entry.className = "log-entry" + (isAlert ? " alert" : "");
+        const time = new Date().toTimeString().split(" ")[0];
+        entry.innerHTML = `<span class="log-time">[${time}]</span> ${msg}`;
+        log.prepend(entry);
+      }
+
+      function toggleCircuit(index) {
+        const c = circuits[index];
+        c.state = c.state === "on" ? "off" : "on";
+        logEvent(`[RELAY-CMD] ${c.id} (${c.name}) -> ${c.state.toUpperCase()}`);
+        updateMatrix();
+      }
+
+      function updateMatrix() {
+        let totalWatts = 0;
+        let activeCount = 0;
+
+        circuits.forEach(c => {
+          if (c.state === "on") {
+            totalWatts += c.watts;
+            activeCount++;
+          }
+        });
+
+        document.getElementById("hudWatts").innerText = `${totalWatts} W`;
+        document.getElementById("hudKwh").innerText = `${(26.1074 + (totalWatts / 1000) * 0.1).toFixed(2)} kWh`;
+        document.getElementById("hudCount").innerText = `${activeCount}/9`;
+
+        const tbody = document.getElementById("scadaTableBody");
+        tbody.innerHTML = circuits.map((c, i) => `
+          <tr>
+            <td><strong>${c.id}</strong></td>
+            <td>${c.name}</td>
+            <td>${c.watts} W</td>
+            <td><span class="status-tag ${c.state}">${c.state === 'on' ? 'ACTIVE [ON]' : 'OFFLINE'}</span></td>
+            <td><button type="button" class="btn-toggle" onclick="toggleCircuit(${i})">${c.state === 'on' ? 'DISENGAGE' : 'ENGAGE'}</button></td>
+          </tr>
+        `).join("");
+
+        saveStates();
+      }
+
+      updateMatrix();
+    </script>
+  </body>
+</html>

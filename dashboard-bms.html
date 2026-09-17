@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Witmind BMS — Consola de Comando (Dark Dashboard)</title>
+    <style>
+      *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --bg-main: #060a14;
+        --bg-card: #0c1322;
+        --bg-card-hover: #111a2e;
+        --bg-subtle: #16223b;
+        --border-color: #1c2b4a;
+        --border-glow: rgba(56, 189, 248, 0.2);
+        --cyan-glow: #00f2fe;
+        --cyan-text: #38bdf8;
+        --emerald-glow: #10b981;
+        --amber-glow: #f59e0b;
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --text-muted: #64748b;
+      }
+      html, body {
+        width: 100%;
+        min-height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background-color: var(--bg-main);
+        color: var(--text-primary);
+        line-height: 1.5;
+      }
+
+      /* Barra Superior de Navegación de Versiones */
+      .version-bar {
+        background: linear-gradient(90deg, #0f172a, #090e1a);
+        border-bottom: 1px solid var(--border-color);
+        padding: 10px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        backdrop-filter: blur(10px);
+      }
+      .brand-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: 0.03em;
+      }
+      .brand-badge {
+        background: linear-gradient(135deg, #0284c7, #0369a1);
+        color: #ffffff;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 800;
+        box-shadow: 0 0 10px rgba(2, 132, 199, 0.4);
+      }
+      .version-nav {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .version-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        text-decoration: none;
+        color: var(--text-secondary);
+        background: var(--bg-subtle);
+        border: 1px solid var(--border-color);
+        transition: all 0.2s ease;
+      }
+      .version-link:hover {
+        background: var(--bg-card-hover);
+        color: var(--text-primary);
+        border-color: var(--cyan-text);
+      }
+      .version-link.active {
+        background: #0284c7;
+        color: #ffffff;
+        border-color: var(--cyan-glow);
+        box-shadow: 0 0 12px rgba(2, 132, 199, 0.5);
+      }
+
+      /* Layout Principal */
+      .dashboard-layout {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+
+      /* Cabecera del Dashboard */
+      .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        padding: 20px 24px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      }
+      .header-info h1 {
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .header-info p {
+        color: var(--text-secondary);
+        font-size: 13px;
+        margin-top: 4px;
+      }
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(16, 185, 129, 0.12);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        color: var(--emerald-glow);
+        padding: 6px 14px;
+        border-radius: 9999px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .pulse-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: var(--emerald-glow);
+        box-shadow: 0 0 10px var(--emerald-glow);
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(1.3); }
+      }
+
+      /* KPI Cards Grid */
+      .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+      }
+      .kpi-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        transition: transform 0.2s, border-color 0.2s;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+      }
+      .kpi-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--cyan-text);
+        box-shadow: 0 8px 24px var(--border-glow);
+      }
+      .kpi-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .kpi-value {
+        font-size: 32px;
+        font-weight: 800;
+        color: var(--text-primary);
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+      }
+      .kpi-value small {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-secondary);
+      }
+      .kpi-value.cyan { color: var(--cyan-text); }
+      .kpi-value.emerald { color: var(--emerald-glow); }
+      .kpi-value.amber { color: var(--amber-glow); }
+      .kpi-footer {
+        font-size: 12px;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      /* Secciones Principales */
+      .main-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 24px;
+      }
+      @media (max-width: 1024px) {
+        .main-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .panel-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      }
+      .panel-title {
+        font-size: 16px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .panel-title small {
+        font-size: 12px;
+        color: var(--text-muted);
+        font-weight: 400;
+      }
+
+      /* Control de Circuitos (Switches Reactivos) */
+      .switches-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 12px;
+      }
+      .switch-tile {
+        background: var(--bg-subtle);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        user-select: none;
+      }
+      .switch-tile:hover {
+        background: var(--bg-card-hover);
+        border-color: var(--cyan-text);
+      }
+      .switch-tile.active {
+        background: rgba(2, 132, 199, 0.15);
+        border-color: var(--cyan-text);
+        box-shadow: 0 0 16px rgba(2, 132, 199, 0.25);
+      }
+      .switch-tile-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .switch-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: var(--bg-main);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        color: var(--text-muted);
+        transition: all 0.2s;
+      }
+      .switch-tile.active .switch-icon {
+        background: #0284c7;
+        color: #ffffff;
+        box-shadow: 0 0 10px var(--cyan-glow);
+      }
+      .switch-power-badge {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-secondary);
+        background: var(--bg-main);
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+      .switch-tile.active .switch-power-badge {
+        color: var(--cyan-text);
+      }
+      .switch-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+      .switch-status {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+      }
+      .switch-tile.active .switch-status {
+        color: var(--emerald-glow);
+      }
+
+      /* Global Master Controls */
+      .master-controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .btn {
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        border: 1px solid var(--border-color);
+        background: var(--bg-subtle);
+        color: var(--text-primary);
+        transition: all 0.2s ease;
+      }
+      .btn:hover {
+        background: var(--bg-card-hover);
+        border-color: var(--cyan-text);
+      }
+      .btn-primary {
+        background: #0284c7;
+        color: #ffffff;
+        border-color: #0284c7;
+      }
+      .btn-primary:hover {
+        background: #0369a1;
+        box-shadow: 0 0 12px rgba(2, 132, 199, 0.5);
+      }
+      .btn-danger {
+        background: rgba(239, 68, 68, 0.15);
+        color: #ef4444;
+        border-color: rgba(239, 68, 68, 0.3);
+      }
+      .btn-danger:hover {
+        background: #ef4444;
+        color: #ffffff;
+      }
+
+      /* Actividad y Recomendaciones */
+      .activity-feed {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .activity-item {
+        background: var(--bg-subtle);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 12px;
+      }
+      .activity-header {
+        display: flex;
+        justify-content: space-between;
+        color: var(--text-muted);
+        font-size: 11px;
+      }
+      .activity-title {
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+      .activity-desc {
+        color: var(--text-secondary);
+      }
+
+      /* Table Styles */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      th {
+        text-align: left;
+        padding: 8px 10px;
+        background: var(--bg-subtle);
+        color: var(--text-muted);
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 10px;
+        border-bottom: 1px solid var(--border-color);
+      }
+      td {
+        padding: 10px;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-secondary);
+      }
+      tr:last-child td { border-bottom: none; }
+    </style>
+  </head>
+  <body>
+    <!-- Barra Superior de Navegación de Versiones HTML -->
+    <header class="version-bar">
+      <div class="brand-title">
+        <span class="brand-badge">BMS v3</span>
+        <span>WITMIND COMMAND CENTER</span>
+      </div>
+      <nav class="version-nav">
+        <span style="font-size: 11px; color: var(--text-muted); font-weight: 700;">VERSIONES HTML:</span>
+        <a href="/dashboard-bms.html" class="version-link active">🌌 BMS Dark</a>
+        <a href="/showroom.html" class="version-link">🎛️ Lovelace HA</a>
+        <a href="/dashboard-matrix.html" class="version-link">📟 SCADA Matrix</a>
+        <a href="/dashboard-exec.html" class="version-link">☀️ Executive Light</a>
+        <a href="/#/overview" class="version-link">⚡ App Shell SPA ↗</a>
+      </nav>
+    </header>
+
+    <main class="dashboard-layout">
+      <!-- Header de Estado Operativo -->
+      <div class="dashboard-header">
+        <div class="header-info">
+          <h1>
+            <span>Centro de Control Operativo BMS</span>
+          </h1>
+          <p>
+            Edificio Sede Principal — Telemetría en tiempo real sincronizada con Home Assistant (1395 W instalados).
+          </p>
+        </div>
+        <div class="status-pill">
+          <span class="pulse-dot"></span>
+          <span>SISTEMA OPERATIVO & OPTIMIZANDO</span>
+        </div>
+      </div>
+
+      <!-- KPI Cards Grid -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-title">
+            <span>Potencia Eléctrica Activa</span>
+            <span>⚡ W</span>
+          </div>
+          <div class="kpi-value cyan" id="kpiActivePower">
+            432 <small>/ 1395 W</small>
+          </div>
+          <div class="kpi-footer">
+            <span id="kpiPowerPercent">30.9%</span> de carga nominal total
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-title">
+            <span>Consumo Acumulado (HA)</span>
+            <span>🔋 kWh</span>
+          </div>
+          <div class="kpi-value emerald" id="kpiEnergyTotal">
+            26.11 <small>kWh</small>
+          </div>
+          <div class="kpi-footer">
+            Base histórica extraída: 35 días
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-title">
+            <span>Ahorro Estimado Hoy</span>
+            <span>🌱 %</span>
+          </div>
+          <div class="kpi-value emerald" id="kpiSavings">
+            32.4% <small>optimizado</small>
+          </div>
+          <div class="kpi-footer">
+            $5.74 USD ahorrados vs línea base
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-title">
+            <span>Circuitos en Operación</span>
+            <span>💡 Luces</span>
+          </div>
+          <div class="kpi-value amber" id="kpiActiveCircuits">
+            4 <small>/ 9 ON</small>
+          </div>
+          <div class="kpi-footer">
+            5 circuitos apagados por política
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Interactive Content Grid -->
+      <div class="main-grid">
+        <!-- Panel de Control de Iluminación Showroom -->
+        <div class="panel-card">
+          <div class="panel-title">
+            <div>
+              <strong>Control Directo de Circuitos — Showroom</strong>
+              <small>• Calibración exacta contra Home Assistant (1395 W)</small>
+            </div>
+            <div class="master-controls">
+              <button type="button" class="btn btn-primary" onclick="toggleAllShowroom(true)">Encender Todos</button>
+              <button type="button" class="btn btn-danger" onclick="toggleAllShowroom(false)">Apagar Todos</button>
+            </div>
+          </div>
+
+          <div class="switches-grid" id="switchesContainer">
+            <!-- Renderizado dinámico de los 9 circuitos -->
+          </div>
+        </div>
+
+        <!-- Panel Lateral: Decisiones Autónomas & Telemetría -->
+        <div class="panel-card">
+          <div class="panel-title">
+            <strong>Inteligencia de Edificio</strong>
+            <small>Decisiones autónomas</small>
+          </div>
+
+          <div class="activity-feed">
+            <div class="activity-item">
+              <div class="activity-header">
+                <span>09:45</span>
+                <span>Daylight Harvesting</span>
+              </div>
+              <div class="activity-title">Atenuación por Luz Natural</div>
+              <div class="activity-desc">Sensor exterior alcanzó 320 lux. Reducción automática de potencia.</div>
+            </div>
+
+            <div class="activity-item">
+              <div class="activity-header">
+                <span>09:15</span>
+                <span>Climatización</span>
+              </div>
+              <div class="activity-title">Estabilización Nominal</div>
+              <div class="activity-desc">Banda de confort asegurada en 23.0°C. Modo mantenimiento.</div>
+            </div>
+
+            <div class="activity-item">
+              <div class="activity-header">
+                <span>08:30</span>
+                <span>Horario Laboral</span>
+              </div>
+              <div class="activity-title">Encendido Programado</div>
+              <div class="activity-desc">Activación de circuitos principales de bienvenida.</div>
+            </div>
+          </div>
+
+          <div style="margin-top: 12px;">
+            <a href="/showroom.html" class="btn btn-primary" style="display: block; text-align: center; text-decoration: none;">
+              Abrir Réplica Lovelace HA ↗
+            </a>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Script de Lógica Mock Reactiva con Persistencia en SessionStorage -->
+    <script>
+      const circuits = [
+        { id: "sw1", name: "Spots ventana", watts: 100, entity: "switch.interruptor_inteligente_switch_1", state: "on" },
+        { id: "sw2", name: "Spots 2×3", watts: 120, entity: "switch.interruptor_inteligente_switch_2", state: "on" },
+        { id: "sw3", name: "Spots 3×3", watts: 180, entity: "switch.interruptor_inteligente_switch_3", state: "off" },
+        { id: "sw4", name: "Spots TV", watts: 25, entity: "switch.interruptor_inteligente_switch_4", state: "on" },
+        { id: "sw5", name: "Paneles 3k/6k", watts: 96, entity: "switch.interruptor_inteligente_2_switch_1", state: "off" },
+        { id: "sw6", name: "Colgantes", watts: 10, entity: "switch.interruptor_inteligente_2_switch_2", state: "off" },
+        { id: "sw7", name: "Slims", watts: 432, entity: "switch.interruptor_inteligente_2_switch_3", state: "on" },
+        { id: "sw8", name: "Downlights", watts: 144, entity: "switch.interruptor_inteligente_2_switch_4", state: "off" },
+        { id: "sw9", name: "Paneles (Relé 4)", watts: 288, entity: "switch.smart_relay_switch_4_switch", state: "off" }
+      ];
+
+      // Restaurar estado de sessionStorage si existe
+      try {
+        const cached = window.sessionStorage.getItem("witmind_showroom_mock_states");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          circuits.forEach(c => {
+            if (parsed[c.entity]) {
+              c.state = parsed[c.entity].state;
+            }
+          });
+        }
+      } catch (_e) {}
+
+      function saveStates() {
+        try {
+          const current = {};
+          circuits.forEach(c => {
+            current[c.entity] = { entity_id: c.entity, state: c.state };
+          });
+          window.sessionStorage.setItem("witmind_showroom_mock_states", JSON.stringify(current));
+        } catch (_e) {}
+      }
+
+      function updateDashboard() {
+        let totalWatts = 0;
+        let activeCount = 0;
+
+        circuits.forEach(c => {
+          if (c.state === "on") {
+            totalWatts += c.watts;
+            activeCount++;
+          }
+        });
+
+        document.getElementById("kpiActivePower").innerHTML = `${totalWatts} <small>/ 1395 W</small>`;
+        document.getElementById("kpiPowerPercent").innerText = `${((totalWatts / 1395) * 100).toFixed(1)}%`;
+        document.getElementById("kpiActiveCircuits").innerHTML = `${activeCount} <small>/ 9 ON</small>`;
+        
+        const energyCumulative = (26.1074 + (totalWatts / 1000) * 0.1).toFixed(2);
+        document.getElementById("kpiEnergyTotal").innerHTML = `${energyCumulative} <small>kWh</small>`;
+
+        renderSwitches();
+        saveStates();
+      }
+
+      function toggleCircuit(index) {
+        circuits[index].state = circuits[index].state === "on" ? "off" : "on";
+        updateDashboard();
+      }
+
+      function toggleAllShowroom(turnOn) {
+        circuits.forEach(c => c.state = turnOn ? "on" : "off");
+        updateDashboard();
+      }
+
+      function renderSwitches() {
+        const container = document.getElementById("switchesContainer");
+        container.innerHTML = circuits.map((c, i) => `
+          <div class="switch-tile ${c.state === 'on' ? 'active' : ''}" onclick="toggleCircuit(${i})">
+            <div class="switch-tile-header">
+              <div class="switch-icon">💡</div>
+              <div class="switch-power-badge">${c.watts} W</div>
+            </div>
+            <div>
+              <div class="switch-name">${c.name}</div>
+              <div class="switch-status">${c.state === 'on' ? '● ENCENDIDO' : '○ APAGADO'}</div>
+            </div>
+          </div>
+        `).join("");
+      }
+
+      // Inicialización
+      updateDashboard();
+    </script>
+  </body>
+</html>

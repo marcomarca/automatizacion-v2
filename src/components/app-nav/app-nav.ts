@@ -105,14 +105,35 @@ export class AppNav extends LitElement {
           </ul>
         </details>
 
+        <details open>
+          <summary><strong>Versiones Dashboard (HTML)</strong></summary>
+          <ul>
+            <li>
+              <a href="/dashboard-bms.html">
+                <span>🌌 BMS Dark Command ↗</span>
+              </a>
+            </li>
+            <li>
+              <a href="/showroom.html">
+                <span>🎛️ Lovelace HA Panel ↗</span>
+              </a>
+            </li>
+            <li>
+              <a href="/dashboard-matrix.html">
+                <span>📟 SCADA Matrix HUD ↗</span>
+              </a>
+            </li>
+            <li>
+              <a href="/dashboard-exec.html">
+                <span>☀️ Executive Light ↗</span>
+              </a>
+            </li>
+          </ul>
+        </details>
+
         <p>
           <a href="#/mock-lab">
             ${route.kind === "mock-lab" ? html`<strong>[ 🧪 Mock Lab ]</strong>` : "🧪 Mock Lab"}
-          </a>
-        </p>
-        <p>
-          <a href="/showroom.html" target="_blank" title="Abrir réplica exacta del panel Showroom de Home Assistant">
-            <span>🎛️ Panel Showroom (Test) ↗</span>
           </a>
         </p>
       </nav>

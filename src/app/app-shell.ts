@@ -95,9 +95,12 @@ export class AppShell extends LitElement {
     return html`
       <div class="app-container">
         <app-nav .currentRoute=${this.currentRoute}></app-nav>
-        <main class="main-content">
-          ${this.renderCurrentView()}
-        </main>
+        <div class="main-wrapper">
+          <dashboard-header></dashboard-header>
+          <main class="main-content">
+            ${this.renderCurrentView()}
+          </main>
+        </div>
       </div>
     `;
   }
