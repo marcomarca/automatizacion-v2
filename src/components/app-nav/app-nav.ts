@@ -114,6 +114,11 @@ export class AppNav extends LitElement {
               </a>
             </li>
             <li>
+              <a href="/showroom-ios.html">
+                <span>📱 Showroom iOS (Tablet) ↗</span>
+              </a>
+            </li>
+            <li>
               <a href="/showroom.html">
                 <span>🎛️ Lovelace HA Panel ↗</span>
               </a>

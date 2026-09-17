@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Witmind Showroom — Prototipo iOS Tablet</title>
+    <style>
+      *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html, body {
+        width: 100%;
+        min-height: 100vh;
+        background-color: #08090d;
+        color: #f8fafc;
+        overflow-x: hidden;
+      }
+      showroom-ios {
+        display: block;
+        width: 100%;
+        min-height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Componente Experimental Showroom iOS -->
+    <showroom-ios id="iosPanel"></showroom-ios>
+
+    <!-- Proveedor Genérico Mock Home Assistant -->
+    <script src="/mock/mock-hass.js"></script>
+
+    <!-- Componente Showroom iOS Nativo -->
+    <script src="/mock/showroom-ios.js"></script>
+
+    <script>
+      // Conexión reactiva con el contrato estándar de Home Assistant
+      window.addEventListener("DOMContentLoaded", () => {
+        const panel = document.getElementById("iosPanel");
+        if (panel && window.registerMockHassConsumer) {
+          window.registerMockHassConsumer(panel);
+        }
+      });
+      const panel = document.getElementById("iosPanel");
+      if (panel && window.registerMockHassConsumer) {
+        window.registerMockHassConsumer(panel);
+      }
+    </script>
+  </body>
+</html>
