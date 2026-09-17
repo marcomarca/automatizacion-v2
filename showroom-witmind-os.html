@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Witmind Showroom OS — Commercial Edition</title>
+    <!-- Single Typographic System: Manrope Variable -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html, body {
+        width: 100%;
+        min-height: 100dvh;
+        background-color: #071118;
+        color: #f5f6f4;
+        font-family: "Manrope", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-feature-settings: "tnum" 1;
+        font-variant-numeric: tabular-nums;
+        overflow-x: hidden;
+      }
+
+      /* Dev Switcher Top Bar — ONLY active with ?dev=1 */
+      .version-top-bar {
+        display: none; /* hidden by default in production / kiosk */
+        background: rgba(16, 25, 30, 0.95);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 8px 24px;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 12px;
+        position: sticky;
+        top: 0;
+        z-index: 99999;
+      }
+      body.dev-mode .version-top-bar {
+        display: flex;
+      }
+
+      .version-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .version-badge {
+        background: #f26522;
+        color: #ffffff;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 11px;
+        letter-spacing: 0.04em;
+      }
+      .version-links {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .version-links a {
+        color: rgba(255, 255, 255, 0.7);
+        text-decoration: none;
+        padding: 4px 12px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 600;
+        transition: all 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .version-links a:hover {
+        background: rgba(242, 101, 34, 0.16);
+        color: #ffffff;
+        border-color: #f26522;
+      }
+      .version-links a.current {
+        background: rgba(242, 101, 34, 0.16);
+        color: #f26522;
+        border-color: #f26522;
+        font-weight: 700;
+      }
+
+      showroom-witmind-os {
+        display: block;
+        width: 100%;
+        min-height: 100dvh;
+      }
+      body.dev-mode showroom-witmind-os {
+        min-height: calc(100dvh - 41px);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Barra de Selección de Variantes (Activa Únicamente con ?dev=1) -->
+    <div class="version-top-bar" id="devTopBar">
+      <div class="version-brand">
+        <span class="version-badge">WITMIND OS</span>
+        <strong>Showroom Commercial Edition</strong>
+        <span style="color: rgba(255, 255, 255, 0.5); font-size: 12px;">• Savant / Crestron Architecture</span>
+      </div>
+      <div class="version-links">
+        <span style="font-size: 11px; color: rgba(255, 255, 255, 0.5); font-weight: 600;">VARIANTES:</span>
+        <a href="/showroom-witmind-os.html?dev=1" class="current">🏛️ Witmind OS Oscuro</a>
+        <a href="/showroom-witmind-os-light.html?dev=1">☀️ Witmind OS Claro</a>
+        <a href="/showroom-witmind.html">🏛️ Witmind Glass</a>
+        <a href="/showroom-witmind-light.html">☀️ Witmind Glass Claro</a>
+        <a href="/showroom-aero.html">💎 Aero Glass</a>
+        <a href="/showroom-ios.html">📱 iOS Tablet</a>
+        <a href="/showroom.html">🎛️ Lovelace HA</a>
+        <a href="/dashboard-bms.html">🌌 BMS Dark</a>
+        <a href="/dashboard-matrix.html">📟 SCADA Matrix</a>
+        <a href="/dashboard-exec.html">☀️ Executive</a>
+      </div>
+    </div>
+
+    <!-- Componente Web Nativo Showroom Witmind OS -->
+    <showroom-witmind-os id="witmindOsPanel"></showroom-witmind-os>
+
+    <!-- Proveedor Reactivo Mock Home Assistant -->
+    <script src="/mock/mock-hass.js"></script>
+
+    <!-- Implementación Showroom Witmind OS -->
+    <script src="/mock/showroom-witmind-os.js"></script>
+
+    <!-- Control de Modo Kiosk / Dev & Registro Reactivo -->
+    <script>
+      (function() {
+        const isDev = new URLSearchParams(window.location.search).has("dev");
+        if (isDev) {
+          document.body.classList.add("dev-mode");
+        }
+
+        function registerPanel() {
+          const panel = document.getElementById("witmindOsPanel");
+          if (panel && window.registerMockHassConsumer) {
+            window.registerMockHassConsumer(panel);
+          }
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", registerPanel);
+        } else {
+          registerPanel();
+        }
+      })();
+    </script>
+  </body>
+</html>
