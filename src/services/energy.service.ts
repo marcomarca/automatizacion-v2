@@ -1,3 +1,5 @@
+import type { MockDevice } from "../models/device";
+
 /**
  * Pure functions for energy modeling and power calculations
  */
@@ -23,4 +25,49 @@ export function calculateEnergyKwh(powerW: number, hours: number): number {
 
 export function calculateMoneySaved(savedKwh: number, ratePerKwh = 0.18): number {
   return Number((savedKwh * ratePerKwh).toFixed(2));
+}
+
+export function calculateDevicePower(device: MockDevice): number {
+  if (device.powerState !== "on") return 0;
+  return (
+    device.actualPowerW ??
+    calculateActualPowerW(device.nominalPowerW ?? 0, device.brightnessPct ?? 100)
+  );
+}
+
+export function calculateSpacePower(devices: MockDevice[]): {
+  currentPowerW: number;
+  nominalPowerW: number;
+  savedPowerW: number;
+  savingsPercent: number;
+} {
+  const nominal = devices.reduce((sum, d) => sum + (d.nominalPowerW ?? 0), 0);
+  const current = devices.reduce((sum, d) => sum + calculateDevicePower(d), 0);
+  const saved = calculateSavedPowerW(nominal, current);
+  const savingsPercent = calculateSavingsPercent(nominal, current);
+
+  return {
+    currentPowerW: Number(current.toFixed(1)),
+    nominalPowerW: Number(nominal.toFixed(1)),
+    savedPowerW: saved,
+    savingsPercent,
+  };
+}
+
+export function calculateBuildingDevicePower(devices: MockDevice[]): {
+  currentPowerW: number;
+  nominalPowerW: number;
+  savedPowerW: number;
+  savingsPercent: number;
+  activeDevicesCount: number;
+  totalDevicesCount: number;
+} {
+  const spaceSummary = calculateSpacePower(devices);
+  const activeCount = devices.filter((d) => d.powerState === "on").length;
+
+  return {
+    ...spaceSummary,
+    activeDevicesCount: activeCount,
+    totalDevicesCount: devices.length,
+  };
 }

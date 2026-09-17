@@ -1,4 +1,4 @@
-import { LitElement, css, html } from "lit";
+import { LitElement, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { Zone } from "../../models";
 
@@ -6,127 +6,9 @@ import type { Zone } from "../../models";
 export class LightingZone extends LitElement {
   @property({ type: Object }) zone!: Zone;
 
-  static styles = css`
-    :host {
-      display: block;
-    }
-    .lighting-card {
-      background-color: var(--color-bg-surface, #ffffff);
-      border: 1px solid var(--color-border, #e2e8f0);
-      border-radius: var(--radius-lg, 8px);
-      padding: var(--spacing-4, 16px);
-      box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05));
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-4, 16px);
-    }
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: var(--spacing-2, 8px);
-    }
-    .zone-info {
-      display: flex;
-      flex-direction: column;
-    }
-    .name {
-      font-size: var(--font-size-base, 16px);
-      font-weight: var(--font-weight-semibold, 600);
-      color: var(--color-text-primary, #0f172a);
-    }
-    .type {
-      font-size: var(--font-size-xs, 12px);
-      color: var(--color-text-muted, #64748b);
-      text-transform: capitalize;
-    }
-    .badges {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-2, 8px);
-    }
-    .badge {
-      padding: 2px 8px;
-      border-radius: var(--radius-full, 9999px);
-      font-size: var(--font-size-xs, 12px);
-      font-weight: var(--font-weight-medium, 500);
-    }
-    .badge-auto {
-      background-color: var(--color-primary-subtle, #eff6ff);
-      color: var(--color-primary, #2563eb);
-      border: 1px solid var(--color-primary, #2563eb);
-    }
-    .badge-manual {
-      background-color: var(--color-warning-subtle, #fffbeb);
-      color: var(--color-warning, #d97706);
-      border: 1px solid var(--color-warning, #d97706);
-    }
-    .badge-compliant {
-      background-color: var(--color-success-subtle, #f0fdf4);
-      color: var(--color-success, #16a34a);
-    }
-    .badge-non-compliant {
-      background-color: var(--color-danger-subtle, #fef2f2);
-      color: var(--color-danger, #dc2626);
-    }
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: var(--spacing-3, 12px);
-      background-color: var(--color-bg-surface-subtle, #f1f5f9);
-      padding: var(--spacing-3, 12px);
-      border-radius: var(--radius-md, 6px);
-    }
-    .metric-col {
-      display: flex;
-      flex-direction: column;
-    }
-    .metric-label {
-      font-size: var(--font-size-xs, 12px);
-      color: var(--color-text-muted, #64748b);
-      margin-bottom: 2px;
-    }
-    .metric-val {
-      font-size: var(--font-size-base, 16px);
-      font-weight: var(--font-weight-bold, 700);
-      color: var(--color-text-primary, #0f172a);
-    }
-    .metric-sub {
-      font-size: var(--font-size-xs, 12px);
-      color: var(--color-text-secondary, #475569);
-    }
-    .slider-section {
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-2, 8px);
-    }
-    .slider-label-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: var(--font-size-xs, 12px);
-      font-weight: var(--font-weight-medium, 500);
-    }
-    .slider {
-      width: 100%;
-      height: 8px;
-      border-radius: var(--radius-full, 9999px);
-      accent-color: var(--color-primary, #2563eb);
-      cursor: pointer;
-    }
-    .power-comparison {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding-top: var(--spacing-2, 8px);
-      border-top: 1px solid var(--color-border, #e2e8f0);
-      font-size: var(--font-size-xs, 12px);
-    }
-    .saved-watts {
-      font-weight: var(--font-weight-bold, 700);
-      color: var(--color-success, #16a34a);
-    }
-  `;
+  protected createRenderRoot() {
+    return this;
+  }
 
   private onBrightnessChange(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -159,66 +41,54 @@ export class LightingZone extends LitElement {
     const savedWatts = Math.max(0, lighting.baselinePowerW - lighting.actualPowerW);
 
     return html`
-      <div class="lighting-card">
-        <div class="header">
-          <div class="zone-info">
-            <span class="name">${name}</span>
-            <span class="type">${type} &bull; ${occupancy.occupied ? "Occupied" : `Vacant (${occupancy.absenceMinutes}m)`}</span>
+      <article>
+        <header>
+          <div>
+            <h3>${name}</h3>
+            <span>${type} &bull; ${occupancy.occupied ? "Ocupado" : `Desocupado (${occupancy.absenceMinutes}m)`}</span>
           </div>
-          <div class="badges">
-            <button class="badge badge-${lighting.mode}" @click=${this.toggleMode} aria-label="Toggle Auto/Manual mode">
-              Mode: ${lighting.mode.toUpperCase()}
+          <div>
+            <button type="button" @click=${this.toggleMode}>
+              Modo: ${lighting.mode.toUpperCase()}
             </button>
             ${
               lighting.mode === "manual" && lighting.manualOverrideUntil
-                ? html`<span class="badge badge-manual">Override until ${lighting.manualOverrideUntil}</span>`
+                ? html`<span>[Manual hasta ${lighting.manualOverrideUntil}]</span>`
                 : ""
             }
-            <span class="badge ${lighting.withinTarget ? "badge-compliant" : "badge-non-compliant"}">
-              ${lighting.withinTarget ? "Target Met" : "Adjusting"}
-            </span>
+            <span>${lighting.withinTarget ? "[Cumple Objetivo]" : "[Ajustando]"}</span>
           </div>
-        </div>
+        </header>
 
-        <div class="metrics-grid">
-          <div class="metric-col">
-            <span class="metric-label">Daylight</span>
-            <span class="metric-val">${lighting.daylightLux} lx</span>
-            <span class="metric-sub">Solar input</span>
-          </div>
-          <div class="metric-col">
-            <span class="metric-label">Target Lux</span>
-            <span class="metric-val">${lighting.targetLux} lx</span>
-            <span class="metric-sub">Total: ${lighting.currentLux} lx</span>
-          </div>
-          <div class="metric-col">
-            <span class="metric-label">Power Draw</span>
-            <span class="metric-val">${lighting.actualPowerW} W</span>
-            <span class="metric-sub">Nom: ${lighting.nominalPowerW} W</span>
-          </div>
-        </div>
+        <ul>
+          <li><strong>Luz Natural:</strong> ${lighting.daylightLux} lx</li>
+          <li><strong>Luz Objetivo:</strong> ${lighting.targetLux} lx (Total: ${lighting.currentLux} lx)</li>
+          <li><strong>Potencia:</strong> ${lighting.actualPowerW} W (Nominal: ${lighting.nominalPowerW} W)</li>
+        </ul>
 
-        <div class="slider-section">
-          <div class="slider-label-row">
-            <span>Dimming Level (${lighting.mode})</span>
-            <span><strong>${lighting.brightness}%</strong></span>
-          </div>
+        <div>
+          <label for="dimmer-${this.zone.id}">Nivel Atenuación (${lighting.brightness}%):</label>
           <input
+            id="dimmer-${this.zone.id}"
             type="range"
             min="0"
             max="100"
             .value=${lighting.brightness}
-            class="slider"
             @input=${this.onBrightnessChange}
-            aria-label="Dimming level for ${name}"
+            aria-label="Nivel Atenuación para ${name}"
           />
         </div>
 
-        <div class="power-comparison">
-          <span>Baseline: ${lighting.baselinePowerW}W &rarr; Actual: ${lighting.actualPowerW}W</span>
-          <span class="saved-watts">⚡ -${savedWatts}W Saved</span>
-        </div>
-      </div>
+        <footer>
+          <small>Base: ${lighting.baselinePowerW}W &rarr; Actual: ${lighting.actualPowerW}W | ⚡ -${savedWatts}W Ahorrados</small>
+        </footer>
+      </article>
     `;
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "lighting-zone": LightingZone;
   }
 }

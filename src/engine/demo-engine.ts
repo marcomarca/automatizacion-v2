@@ -1,6 +1,27 @@
 import type { SimulationInput } from "../api/contracts/data-adapter";
+import { allMockAutomations } from "../mocks/automations";
+import { mockSpaces } from "../mocks/building/spaces";
+import { defaultMockCalendar } from "../mocks/calendar/default-calendar";
+import { allMockDevices } from "../mocks/devices";
+import { allMockNotifications } from "../mocks/notifications";
+import { allMockProducts } from "../mocks/products";
 import { allScenarios, normalDayScenario } from "../mocks/scenarios";
-import type { Building, OptimizationImpact, SmartActivity, Zone } from "../models";
+import { allMockScenes } from "../mocks/scenes";
+import type {
+  Building,
+  DevicePowerState,
+  MockAutomation,
+  MockCalendarDay,
+  MockDevice,
+  MockNotification,
+  MockPrintJob,
+  MockScene,
+  OptimizationImpact,
+  Product,
+  SmartActivity,
+  Space,
+  Zone,
+} from "../models";
 import type {
   PhysicalCurve,
   ScenarioDefinition,
@@ -8,9 +29,13 @@ import type {
   SimulationSample,
 } from "../models/scenario";
 import { createSmartActivity } from "../services/activity.service";
+import { AutomationService } from "../services/automation.service";
 import { calculateClimateState, stepTemperatureTowardsTarget } from "../services/climate.service";
-import { calculateSavingsPercent } from "../services/energy.service";
+import { DeviceService } from "../services/device.service";
+import { calculateBuildingDevicePower, calculateSavingsPercent } from "../services/energy.service";
 import { calculateLightingState } from "../services/lighting.service";
+import { PrintService } from "../services/print.service";
+import { SceneService } from "../services/scene.service";
 import { ProfileSampler } from "../simulation/profile-sampler";
 import { DemoClock } from "./clock";
 import type { DemoScenario } from "./scenario";
@@ -49,6 +74,16 @@ export class DemoEngine {
   // Active physical curves map for curve-based plant evaluations
   private activeCurves: Map<string, PhysicalCurve> = new Map();
 
+  // Internal domain entities
+  private spacesMap: Map<string, Space> = new Map();
+  private devicesMap: Map<string, MockDevice> = new Map();
+  private scenesMap: Map<string, MockScene> = new Map();
+  private productsMap: Map<string, Product> = new Map();
+  private automationsMap: Map<string, MockAutomation> = new Map();
+  private notificationsList: MockNotification[] = [];
+  private calendarMap: Map<string, MockCalendarDay> = new Map();
+  private printJobsList: MockPrintJob[] = [];
+
   // Internal state
   private buildingState: Building;
   private energyState: OptimizationImpact;
@@ -78,11 +113,48 @@ export class DemoEngine {
           : "2026-09-16T08:00:00Z";
 
     this.clock = new DemoClock(initialTime);
+    this.initDomainEntities();
     this.buildingState = this.buildInitialBuilding(initialScenario);
     this.energyState = this.buildInitialEnergy(initialScenario);
     this.activities = this.buildInitialActivities();
     this.checkInitialRecommendation(initialScenario);
     this.initHistory();
+  }
+
+  private initDomainEntities(): void {
+    this.spacesMap.clear();
+    for (const s of mockSpaces) {
+      this.spacesMap.set(s.id, { ...s });
+    }
+
+    this.devicesMap.clear();
+    for (const d of allMockDevices) {
+      this.devicesMap.set(d.id, { ...d });
+    }
+
+    this.scenesMap.clear();
+    for (const sc of allMockScenes) {
+      this.scenesMap.set(sc.id, { ...sc });
+    }
+
+    this.productsMap.clear();
+    for (const p of allMockProducts) {
+      this.productsMap.set(p.id, { ...p });
+    }
+
+    this.automationsMap.clear();
+    for (const a of allMockAutomations) {
+      this.automationsMap.set(a.id, { ...a });
+    }
+
+    this.notificationsList = allMockNotifications.map((n) => ({ ...n }));
+
+    this.calendarMap.clear();
+    for (const c of defaultMockCalendar) {
+      this.calendarMap.set(c.date, { ...c });
+    }
+
+    this.printJobsList = [];
   }
 
   public setCurves(curves: PhysicalCurve[]): void {
@@ -186,6 +258,410 @@ export class DemoEngine {
     return samples;
   }
 
+  // ==========================================
+  // SPACES DOMAIN METHODS
+  // ==========================================
+
+  public getSpaces(): Space[] {
+    return Array.from(this.spacesMap.values());
+  }
+
+  public getSpace(id: string): Space | undefined {
+    return this.spacesMap.get(id);
+  }
+
+  // ==========================================
+  // DEVICES DOMAIN METHODS
+  // ==========================================
+
+  public getDevices(): MockDevice[] {
+    return Array.from(this.devicesMap.values());
+  }
+
+  public getDevice(id: string): MockDevice | undefined {
+    return this.devicesMap.get(id);
+  }
+
+  public getDevicesBySpace(spaceId: string): MockDevice[] {
+    return Array.from(this.devicesMap.values()).filter((d) => d.spaceId === spaceId);
+  }
+
+  public setDevicePower(deviceId: string, state: DevicePowerState): void {
+    const device = this.devicesMap.get(deviceId);
+    if (!device) return;
+
+    const changes = DeviceService.setPowerState(device, state, device.brightnessPct);
+    const updated: MockDevice = { ...device, ...changes };
+    this.devicesMap.set(deviceId, updated);
+
+    // Sync zone state if mapped
+    this.syncDeviceToZone(updated);
+
+    // Record activity
+    const actionLabel = state === "on" ? "Encendido manual" : "Apagado manual";
+    const act = createSmartActivity({
+      timestamp: this.clock.formatTime(),
+      category: "lighting",
+      title: `${device.name}: ${state === "on" ? "ON" : "OFF"}`,
+      reason: `Acción del usuario en espacio ${device.spaceId}.`,
+      action: actionLabel,
+      source: "manual",
+      spaceId: device.spaceId,
+      deviceId: device.id,
+      impact: state === "off" ? { wattsSaved: device.nominalPowerW } : undefined,
+    });
+    this.activities.unshift(act);
+    this.notifyActivity(act);
+
+    // Recalculate energy
+    this.recalculateBuildingEnergy(1);
+    this.notify();
+  }
+
+  public toggleDevice(deviceId: string): void {
+    const device = this.devicesMap.get(deviceId);
+    if (!device) return;
+    const nextState: DevicePowerState = device.powerState === "on" ? "off" : "on";
+    this.setDevicePower(deviceId, nextState);
+  }
+
+  public setDeviceBrightness(deviceId: string, brightnessPct: number): void {
+    const device = this.devicesMap.get(deviceId);
+    if (!device) return;
+
+    const changes = DeviceService.setBrightness(device, brightnessPct);
+    const updated: MockDevice = { ...device, ...changes };
+    this.devicesMap.set(deviceId, updated);
+
+    this.syncDeviceToZone(updated);
+
+    const act = createSmartActivity({
+      timestamp: this.clock.formatTime(),
+      category: "lighting",
+      title: `${device.name}: ${brightnessPct}%`,
+      reason: `Regulación de intensidad en espacio ${device.spaceId}.`,
+      action: `Ajuste de brillo a ${brightnessPct}%.`,
+      source: "manual",
+      spaceId: device.spaceId,
+      deviceId: device.id,
+    });
+    this.activities.unshift(act);
+    this.notifyActivity(act);
+
+    this.recalculateBuildingEnergy(1);
+    this.notify();
+  }
+
+  public turnAllLightsOn(): void {
+    for (const [id, dev] of this.devicesMap.entries()) {
+      if (dev.kind === "light" || dev.kind === "switch" || dev.kind === "relay") {
+        const changes = DeviceService.setPowerState(dev, "on", 100);
+        this.devicesMap.set(id, { ...dev, ...changes });
+      }
+    }
+
+    const act = createSmartActivity({
+      timestamp: this.clock.formatTime(),
+      category: "lighting",
+      title: "Encendido General de Edificio",
+      reason: "Comando global ejecutado.",
+      action: "Todas las luces encendidas.",
+      source: "manual",
+    });
+    this.activities.unshift(act);
+    this.notifyActivity(act);
+
+    this.recalculateBuildingEnergy(1);
+    this.notify();
+  }
+
+  public turnAllLightsOff(): void {
+    for (const [id, dev] of this.devicesMap.entries()) {
+      if (dev.kind === "light" || dev.kind === "switch" || dev.kind === "relay") {
+        const changes = DeviceService.setPowerState(dev, "off", 0);
+        this.devicesMap.set(id, { ...dev, ...changes });
+      }
+    }
+
+    const act = createSmartActivity({
+      timestamp: this.clock.formatTime(),
+      category: "lighting",
+      title: "Apagado General de Edificio",
+      reason: "Comando global ejecutado.",
+      action: "Todas las luces apagadas.",
+      source: "manual",
+    });
+    this.activities.unshift(act);
+    this.notifyActivity(act);
+
+    this.recalculateBuildingEnergy(1);
+    this.notify();
+  }
+
+  public turnSpaceOn(spaceId: string): void {
+    const space = this.spacesMap.get(spaceId);
+    if (!space) return;
+
+    for (const [id, dev] of this.devicesMap.entries()) {
+      if (dev.spaceId === spaceId) {
+        const changes = DeviceService.setPowerState(dev, "on", 100);
+        this.devicesMap.set(id, { ...dev, ...changes });
+      }
+    }
+
+    const act = createSmartActivity({
+      timestamp: this.clock.formatTime(),
+      category: "lighting",
+      title: `Encendido de Espacio: ${space.name}`,
+      reason: `Comando de espacio para ${space.name}.`,
+      action: "Dispositivos del espacio encendidos.",
+      source: "manual",
+      spaceId,
+    });
+    this.activities.unshift(act);
+    this.notifyActivity(act);
+
+    this.recalculateBuildingEnergy(1);
+    this.notify();
+  }
+
+  public turnSpaceOff(spaceId: string): void {
+    const space = this.spacesMap.get(spaceId);
+    if (!space) return;
+
+    for (const [id, dev] of this.devicesMap.entries()) {
+      if (dev.spaceId === spaceId) {
+        const changes = DeviceService.setPowerState(dev, "off", 0);
+        this.devicesMap.set(id, { ...dev, ...changes });
+      }
+    }
+
+    const act = createSmartActivity({
+      timestamp: this.clock.formatTime(),
+      category: "lighting",
+      title: `Apagado de Espacio: ${space.name}`,
+      reason: `Comando de espacio para ${space.name}.`,
+      action: "Dispositivos del espacio apagados.",
+      source: "manual",
+      spaceId,
+    });
+    this.activities.unshift(act);
+    this.notifyActivity(act);
+
+    this.recalculateBuildingEnergy(1);
+    this.notify();
+  }
+
+  // ==========================================
+  // SCENES DOMAIN METHODS
+  // ==========================================
+
+  public getScenes(): MockScene[] {
+    return Array.from(this.scenesMap.values());
+  }
+
+  public getScenesBySpace(spaceId: string): MockScene[] {
+    return Array.from(this.scenesMap.values()).filter((s) => s.spaceId === spaceId);
+  }
+
+  public runScene(sceneId: string): void {
+    const scene = this.scenesMap.get(sceneId);
+    if (!scene) return;
+
+    const result = SceneService.applyScene(scene, this.devicesMap);
+    for (const dev of result.updatedDevices) {
+      this.devicesMap.set(dev.id, dev);
+      this.syncDeviceToZone(dev);
+    }
+
+    const space = this.spacesMap.get(scene.spaceId);
+    const spaceName = space ? space.name : scene.spaceId;
+
+    const act = createSmartActivity({
+      timestamp: this.clock.formatTime(),
+      category: "scene",
+      title: `Escena "${scene.name}" aplicada`,
+      reason: `Espacio ${spaceName}: ${result.turnedOnCount} encendidos, ${result.turnedOffCount} apagados.`,
+      action: "Transacción de escena ejecutada.",
+      source: "scene",
+      spaceId: scene.spaceId,
+    });
+    this.activities.unshift(act);
+    this.notifyActivity(act);
+
+    this.recalculateBuildingEnergy(1);
+    this.notify();
+  }
+
+  // ==========================================
+  // PRODUCTS DOMAIN METHODS
+  // ==========================================
+
+  public getProducts(): Product[] {
+    return Array.from(this.productsMap.values());
+  }
+
+  public getProductsBySpace(spaceId: string): Product[] {
+    return Array.from(this.productsMap.values()).filter((p) => p.spaceId === spaceId);
+  }
+
+  // ==========================================
+  // AUTOMATIONS DOMAIN METHODS
+  // ==========================================
+
+  public getAutomations(): MockAutomation[] {
+    return Array.from(this.automationsMap.values());
+  }
+
+  public toggleAutomation(automationId: string): void {
+    const auto = this.automationsMap.get(automationId);
+    if (!auto) return;
+
+    const updated = AutomationService.toggleEnabled(auto);
+    this.automationsMap.set(automationId, updated);
+
+    const act = createSmartActivity({
+      timestamp: this.clock.formatTime(),
+      category: "automation",
+      title: `Automatización "${auto.name}": ${updated.enabled ? "Habilitada" : "Deshabilitada"}`,
+      reason: "Cambio de configuración por el usuario.",
+      action: updated.enabled ? "enable" : "disable",
+      source: "user",
+    });
+    this.activities.unshift(act);
+    this.notifyActivity(act);
+    this.notify();
+  }
+
+  public runAutomation(automationId: string): void {
+    const auto = this.automationsMap.get(automationId);
+    if (!auto) return;
+
+    const execResult = AutomationService.execute(auto, this.clock.formatTime());
+    auto.lastTriggeredAt = `Hoy a las ${this.clock.formatTime()}`;
+
+    // Apply actions
+    for (const action of auto.actions) {
+      if (action.target === "device" && action.deviceId) {
+        if (action.powerState) this.setDevicePower(action.deviceId, action.powerState);
+        if (action.brightnessPct !== undefined)
+          this.setDeviceBrightness(action.deviceId, action.brightnessPct);
+      } else if (action.target === "scene" && action.sceneId) {
+        this.runScene(action.sceneId);
+      } else if (action.target === "notification" && action.message) {
+        this.notificationsList.unshift({
+          id: `notif-${Date.now().toString(36)}`,
+          timestamp: this.clock.formatTime(),
+          level: "info",
+          title: auto.name,
+          message: action.message,
+          read: false,
+          category: "automation",
+        });
+      }
+    }
+
+    const act = createSmartActivity({
+      timestamp: this.clock.formatTime(),
+      category: "automation",
+      title: `Automatización manual: ${auto.name}`,
+      reason: execResult.message || "Ejecución manual solicitada.",
+      action: "automation_run",
+      source: "user",
+    });
+    this.activities.unshift(act);
+    this.notifyActivity(act);
+    this.notify();
+  }
+
+  // ==========================================
+  // NOTIFICATIONS DOMAIN METHODS
+  // ==========================================
+
+  public getNotifications(): MockNotification[] {
+    return [...this.notificationsList];
+  }
+
+  public markNotificationRead(notificationId: string): void {
+    const item = this.notificationsList.find((n) => n.id === notificationId);
+    if (item) {
+      item.read = true;
+      this.notify();
+    }
+  }
+
+  public clearNotifications(): void {
+    this.notificationsList = [];
+    this.notify();
+  }
+
+  // ==========================================
+  // CALENDAR DOMAIN METHODS
+  // ==========================================
+
+  public getCalendar(): MockCalendarDay[] {
+    return Array.from(this.calendarMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  public updateCalendarDay(day: MockCalendarDay): void {
+    this.calendarMap.set(day.date, { ...day });
+
+    const act = createSmartActivity({
+      timestamp: this.clock.formatTime(),
+      category: "system",
+      title: `Calendario actualizado: ${day.date}`,
+      reason: `Día marcado como ${day.workingDay ? "Laboral" : "No Laboral"} (${day.description || ""}).`,
+      action: "calendar_update",
+      source: "user",
+    });
+    this.activities.unshift(act);
+    this.notifyActivity(act);
+    this.notify();
+  }
+
+  // ==========================================
+  // PRINT JOBS DOMAIN METHODS
+  // ==========================================
+
+  public getPrintJobs(): MockPrintJob[] {
+    return [...this.printJobsList];
+  }
+
+  public createPrintJob(documentName: string, pages: number, spaceId = "showroom"): MockPrintJob {
+    const job = PrintService.createJob(documentName, pages, "HP LaserJet Showroom", spaceId);
+    this.printJobsList.unshift(job);
+
+    const act = createSmartActivity({
+      timestamp: this.clock.formatTime(),
+      category: "system",
+      title: `Impresión en cola: ${documentName}`,
+      reason: `${pages} páginas enviadas a ${job.printerName}.`,
+      action: "print_queued",
+      source: "user",
+      spaceId,
+    });
+    this.activities.unshift(act);
+    this.notifyActivity(act);
+    this.notify();
+    return job;
+  }
+
+  private syncDeviceToZone(device: MockDevice): void {
+    if (!device.zoneId) return;
+    const zoneIndex = this.buildingState.zones.findIndex((z) => z.id === device.zoneId);
+    if (zoneIndex === -1) return;
+
+    const currentZone = this.buildingState.zones[zoneIndex];
+    if (currentZone.lighting) {
+      currentZone.lighting = {
+        ...currentZone.lighting,
+        mode: "manual",
+        brightness: device.powerState === "on" ? (device.brightnessPct ?? 100) : 0,
+        actualPowerW: device.actualPowerW ?? 0,
+      };
+    }
+  }
+
   public loadScenario(scenarioOrId: ScenarioDefinition | DemoScenario | string): void {
     this.pause();
     if (typeof scenarioOrId === "string") {
@@ -212,6 +688,7 @@ export class DemoEngine {
           : "2026-09-16T08:00:00Z";
 
     this.clock.set(initialTime);
+    this.initDomainEntities();
     this.buildingState = this.buildInitialBuilding(this.currentScenario);
     this.energyState = this.buildInitialEnergy(this.currentScenario);
     this.activities = this.buildInitialActivities();
@@ -241,12 +718,17 @@ export class DemoEngine {
   }
 
   /**
-   * Deterministic per-step execution order per PLAN-v2 section 13.4
+   * Deterministic per-step execution order
    */
   public tick(deltaSeconds = 1): void {
     // 1. Advance simulation clock
     this.elapsedSeconds += deltaSeconds;
     this.clock.advanceSeconds(deltaSeconds);
+
+    // Process print jobs
+    if (this.printJobsList.some((j) => j.status === "queued" || j.status === "printing")) {
+      this.printJobsList = PrintService.processQueue(this.printJobsList);
+    }
 
     const timeOfDaySeconds =
       (this.clock.now().getUTCHours() * 3600 +
@@ -367,7 +849,7 @@ export class DemoEngine {
   }
 
   /**
-   * Runs a complete 24-hour simulation fast (without real-time delay)
+   * Runs a complete 24-hour simulation fast
    */
   public async runFullDayFast(stepSeconds = 60): Promise<SimulationSample[]> {
     this.pause();
@@ -399,7 +881,6 @@ export class DemoEngine {
         ? input.absenceMinutes
         : currentZone.occupancy.absenceMinutes;
 
-    // Retrieve zone config and curves if available
     let zoneConfig: ScenarioZoneDefinition["config"] | undefined;
     if ("zones" in this.currentScenario && Array.isArray(this.currentScenario.zones)) {
       const zDef = (this.currentScenario.zones as ScenarioZoneDefinition[]).find(
@@ -416,7 +897,6 @@ export class DemoEngine {
       : null;
     const luxCurve = zoneConfig?.luxCurveId ? this.activeCurves.get(zoneConfig.luxCurveId) : null;
 
-    // Lighting updates
     let newLighting = currentZone.lighting;
     if (newLighting) {
       const daylightLux =
@@ -451,7 +931,6 @@ export class DemoEngine {
       });
     }
 
-    // Climate updates
     let newClimate = currentZone.climate;
     if (newClimate) {
       const targetTemp = input.targetTemperature ?? newClimate.targetTemperature;
@@ -470,7 +949,6 @@ export class DemoEngine {
       });
     }
 
-    // Occupancy updates
     const newOccupancy = {
       occupied: newOccupied,
       lastChangedAt: this.clock.formatTime(),
@@ -580,7 +1058,11 @@ export class DemoEngine {
       }
     }
 
-    // Precise integration over deltaSeconds per PLAN-v2 section 25
+    // Add device powers
+    const deviceSummary = calculateBuildingDevicePower(this.getDevices());
+    totalActualW += deviceSummary.currentPowerW;
+    totalBaselineW += deviceSummary.nominalPowerW;
+
     const actualEnergyIncrementKwh = (totalActualW * deltaSeconds) / 3600000;
     const baselineEnergyIncrementKwh = (totalBaselineW * deltaSeconds) / 3600000;
 
@@ -753,3 +1235,5 @@ export class DemoEngine {
     }
   }
 }
+
+export const demoEngine = new DemoEngine(normalDayScenario);

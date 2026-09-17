@@ -1,4 +1,4 @@
-import { LitElement, css, html } from "lit";
+import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import "../components";
 import "../views";
@@ -9,52 +9,9 @@ export class AppShell extends LitElement {
   @state() private currentRoute: AppRoute = router.getRoute();
   private unsubscribeRouter: (() => void) | null = null;
 
-  static styles = css`
-    :host {
-      display: block;
-      min-height: 100vh;
-      width: 100%;
-      background-color: var(--color-bg-app, #f8fafc);
-      color: var(--color-text-primary, #0f172a);
-    }
-
-    .app-layout {
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-      width: 100%;
-    }
-
-    @media (min-width: 1024px) {
-      .app-layout {
-        flex-direction: row;
-      }
-    }
-
-    .main-container {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-      padding: var(--spacing-4, 16px);
-      max-width: 1600px;
-      margin: 0 auto;
-      width: 100%;
-      box-sizing: border-box;
-    }
-
-    @media (min-width: 640px) {
-      .main-container {
-        padding: var(--spacing-6, 24px);
-      }
-    }
-
-    @media (min-width: 1024px) {
-      .main-container {
-        padding: var(--spacing-8, 32px);
-      }
-    }
-  `;
+  protected createRenderRoot() {
+    return this;
+  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -72,17 +29,63 @@ export class AppShell extends LitElement {
   }
 
   private renderCurrentView() {
-    switch (this.currentRoute) {
+    switch (this.currentRoute.kind) {
       case "overview":
         return html`<overview-view></overview-view>`;
-      case "lighting":
-        return html`<lighting-view></lighting-view>`;
-      case "climate":
-        return html`<climate-view></climate-view>`;
-      case "activity":
-        return html`<activity-view></activity-view>`;
-      case "simulator":
+
+      case "spaces":
+        return html`<spaces-view></spaces-view>`;
+
+      case "space":
+        return html`
+          <space-view
+            .spaceId=${this.currentRoute.spaceId}
+            .activeSection=${this.currentRoute.section || "overview"}
+          ></space-view>
+        `;
+
+      case "system":
+        switch (this.currentRoute.systemId) {
+          case "lighting":
+            return html`<systems-lighting-view></systems-lighting-view>`;
+          case "climate":
+            return html`<systems-climate-view></systems-climate-view>`;
+          case "energy":
+            return html`<systems-energy-view></systems-energy-view>`;
+          case "automations":
+            return html`<systems-automations-view></systems-automations-view>`;
+          default:
+            return html`<systems-lighting-view></systems-lighting-view>`;
+        }
+
+      case "operation":
+        switch (this.currentRoute.operationId) {
+          case "activity":
+            return html`<operations-activity-view></operations-activity-view>`;
+          case "notifications":
+            return html`<operations-notifications-view></operations-notifications-view>`;
+          case "calendar":
+            return html`<operations-calendar-view></operations-calendar-view>`;
+          case "recording":
+            return html`<operations-recording-view></operations-recording-view>`;
+          case "printing":
+            return html`<operations-printing-view></operations-printing-view>`;
+          default:
+            return html`<operations-activity-view></operations-activity-view>`;
+        }
+
+      case "mock-lab":
         return html`<simulator-view></simulator-view>`;
+
+      case "not-found":
+        return html`
+          <section>
+            <h2>404 - Página no encontrada</h2>
+            <p>La vista seleccionada no existe en el sistema.</p>
+            <p><a href="#/overview">Volver a Resumen General</a></p>
+          </section>
+        `;
+
       default:
         return html`<overview-view></overview-view>`;
     }
@@ -90,12 +93,18 @@ export class AppShell extends LitElement {
 
   render() {
     return html`
-      <div class="app-layout">
+      <div>
         <app-nav .currentRoute=${this.currentRoute}></app-nav>
-        <main class="main-container">
+        <main>
           ${this.renderCurrentView()}
         </main>
       </div>
     `;
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "app-shell": AppShell;
   }
 }

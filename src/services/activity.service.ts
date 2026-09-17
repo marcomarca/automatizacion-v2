@@ -1,4 +1,4 @@
-import type { ActivityCategory, SmartActivity } from "../models";
+import type { ActivityCategory, ActivitySource, SmartActivity } from "../models";
 
 export interface CreateActivityParams {
   id?: string;
@@ -7,13 +7,16 @@ export interface CreateActivityParams {
   title: string;
   reason: string;
   action: string;
+  spaceId?: string;
+  deviceId?: string;
   impact?: {
     wattsSaved?: number;
     energySavedKwh?: number;
     moneySaved?: number;
     savingsPercent?: number;
   };
-  source?: "automation" | "recommendation" | "user";
+  source?: ActivitySource;
+  metadata?: Record<string, unknown>;
 }
 
 let activityCounter = 1;
@@ -26,8 +29,11 @@ export function createSmartActivity(params: CreateActivityParams): SmartActivity
     title: params.title,
     reason: params.reason,
     action: params.action,
+    spaceId: params.spaceId,
+    deviceId: params.deviceId,
     impact: params.impact,
     source: params.source ?? "automation",
+    metadata: params.metadata,
   };
 }
 

@@ -1,0 +1,40 @@
+import type { MockDevice } from "../../models/device";
+
+export const lobbyDevices: MockDevice[] = [
+  {
+    id: "lobby.main-lights",
+    name: "Iluminación General Lobby",
+    kind: "light",
+    spaceId: "lobby",
+    zoneId: "lobby-general",
+    powerState: "off",
+    brightnessPct: 0,
+    nominalPowerW: 120,
+    actualPowerW: 0,
+    available: true,
+  },
+  {
+    id: "lobby.reception-spot",
+    name: "Foco Recepción",
+    kind: "light",
+    spaceId: "lobby",
+    zoneId: "lobby-reception",
+    powerState: "off",
+    brightnessPct: 0,
+    nominalPowerW: 50,
+    actualPowerW: 0,
+    available: true,
+  },
+  {
+    id: "lobby.accent-led",
+    name: "Tira LED Decorativa",
+    kind: "light",
+    spaceId: "lobby",
+    zoneId: "lobby-accent",
+    powerState: "off",
+    brightnessPct: 0,
+    nominalPowerW: 35,
+    actualPowerW: 0,
+    available: true,
+  },
+];

@@ -1,14 +1,18 @@
-export type AppRoute = "overview" | "lighting" | "climate" | "activity" | "simulator";
+import { type AppRoute, parseRoute, routeToHash } from "./routes";
+
+export type { AppRoute };
 
 export class Router {
   private static instance: Router;
-  private currentRoute: AppRoute = "overview";
+  private currentRoute: AppRoute = { kind: "overview" };
   private listeners: Set<(route: AppRoute) => void> = new Set();
 
   private constructor() {
-    window.addEventListener("hashchange", () => this.handleHashChange());
-    window.addEventListener("load", () => this.handleHashChange());
-    this.handleHashChange();
+    if (typeof window !== "undefined") {
+      window.addEventListener("hashchange", () => this.handleHashChange());
+      window.addEventListener("load", () => this.handleHashChange());
+      this.handleHashChange();
+    }
   }
 
   public static getInstance(): Router {
@@ -23,7 +27,12 @@ export class Router {
   }
 
   public navigate(route: AppRoute): void {
-    window.location.hash = `#/${route}`;
+    if (typeof window !== "undefined") {
+      window.location.hash = routeToHash(route);
+    } else {
+      this.currentRoute = route;
+      this.notify();
+    }
   }
 
   public subscribe(listener: (route: AppRoute) => void): () => void {
@@ -31,19 +40,16 @@ export class Router {
     return () => this.listeners.delete(listener);
   }
 
-  private handleHashChange(): void {
-    const rawHash = window.location.hash.replace(/^#\/?/, "") || "overview";
-    const validRoutes: AppRoute[] = ["overview", "lighting", "climate", "activity", "simulator"];
-
-    if (validRoutes.includes(rawHash as AppRoute)) {
-      this.currentRoute = rawHash as AppRoute;
-    } else {
-      this.currentRoute = "overview";
-    }
-
+  private notify(): void {
     for (const listener of this.listeners) {
       listener(this.currentRoute);
     }
+  }
+
+  private handleHashChange(): void {
+    const rawHash = typeof window !== "undefined" ? window.location.hash : "";
+    this.currentRoute = parseRoute(rawHash);
+    this.notify();
   }
 }
 

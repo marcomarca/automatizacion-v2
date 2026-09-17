@@ -1,5 +1,6 @@
 import type { DatabaseClient } from "../database";
 import { initialMockLabMigration } from "./001-initial-mock-lab";
+import { runtimeStateMigration } from "./002-runtime-state";
 
 export async function runMigrations(db: DatabaseClient): Promise<void> {
   // Check if app_meta table exists and what version is present
@@ -19,5 +20,9 @@ export async function runMigrations(db: DatabaseClient): Promise<void> {
 
   if (currentVersion < 1) {
     await initialMockLabMigration.up(db);
+  }
+
+  if (currentVersion < 2) {
+    await runtimeStateMigration.up(db);
   }
 }

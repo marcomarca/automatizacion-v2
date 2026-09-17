@@ -1,0 +1,93 @@
+import type { Product } from "../../models/product";
+
+export const showroomProducts: Product[] = [
+  {
+    id: "panel-backlit",
+    name: "Panel Backlit LED",
+    family: "Paneles",
+    spaceId: "showroom",
+    description: "Panel de retroiluminación uniforme de alto rendimiento lumínico",
+    specifications: {
+      dimensiones: "60x60 cm",
+      potenciaNominalW: 48,
+      temperaturaColor: "4000K",
+      flujoLumens: 4800,
+      protocoloControl: "0-10V / DALI",
+    },
+    controlledDeviceIds: ["showroom.panels"],
+  },
+  {
+    id: "panel-3k6k",
+    name: "Panel Dynamic CCT 3K/6K",
+    family: "Paneles",
+    spaceId: "showroom",
+    description: "Panel LED sintonizable de blanco cálido a blanco frío (Tunable White)",
+    specifications: {
+      dimensiones: "60x60 cm",
+      potenciaNominalW: 48,
+      rangoCCT: "3000K — 6000K",
+      flujoLumens: 4500,
+      protocoloControl: "Dual Channel PWM",
+    },
+    controlledDeviceIds: ["showroom.panels-3k6k"],
+  },
+  {
+    id: "spot-20w",
+    name: "Spot Track LED 20W",
+    family: "Focos y Rieles",
+    spaceId: "showroom",
+    description: "Proyector orientable sobre carril electrificado para acento focal",
+    specifications: {
+      potenciaNominalW: 20,
+      anguloApertura: "36°",
+      cri: 92,
+      orientacion: "350° giro / 90° basculante",
+    },
+    controlledDeviceIds: [
+      "showroom.spots-window",
+      "showroom.spots-2x3",
+      "showroom.spots-3x3",
+      "showroom.spots-tv",
+    ],
+  },
+  {
+    id: "downlight-commercial",
+    name: "Downlight Empotrable Comercial",
+    family: "Downlights",
+    spaceId: "showroom",
+    description: "Luminaria circular empotrada con difusor microprismático antideslumbrante",
+    specifications: {
+      diametro: "200 mm",
+      potenciaNominalW: 25,
+      ugr: "< 19",
+      temperaturaColor: "4000K",
+    },
+    controlledDeviceIds: ["showroom.downlights"],
+  },
+  {
+    id: "colgante-lineal",
+    name: "Luminaria Colgante Suspendida",
+    family: "Suspendidas",
+    spaceId: "showroom",
+    description: "Estructura lineal de emisión directa/indirecta para zonas de diseño",
+    specifications: {
+      longitud: "1200 mm",
+      potenciaNominalW: 35,
+      distribucionLuz: "70% directa / 30% indirecta",
+    },
+    controlledDeviceIds: ["showroom.pendants"],
+  },
+  {
+    id: "slim-recessed",
+    name: "Perfil Arquitectónico Slim",
+    family: "Perfiles",
+    spaceId: "showroom",
+    description: "Perfil ultradelgado de aluminio con tira LED de alta densidad continua",
+    specifications: {
+      anchoPerfil: "15 mm",
+      potenciaNominalW: 15,
+      densidadLed: "180 LED/m",
+    },
+    controlledDeviceIds: ["showroom.slims"],
+  },
+];

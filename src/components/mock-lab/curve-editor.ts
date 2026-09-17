@@ -1,6 +1,7 @@
 import * as echarts from "echarts";
-import { LitElement, css, html } from "lit";
+import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
+
 import type { PhysicalCurve, SourceReference } from "../../models/scenario";
 import { simulationConfigStore } from "../../stores/simulation-config.store";
 
@@ -14,115 +15,9 @@ export class MockLabCurveEditor extends LitElement {
 
   private chartInstance: echarts.ECharts | null = null;
 
-  static styles = css`
-    :host {
-      display: block;
-    }
-    .card {
-      background: var(--color-bg-surface, #ffffff);
-      border: 1px solid var(--color-border, #e2e8f0);
-      border-radius: var(--radius-lg, 12px);
-      padding: var(--spacing-5, 20px);
-      box-shadow: var(--shadow-sm);
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-    .title {
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--color-text-primary, #0f172a);
-      margin: 0;
-    }
-    .provenance-badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 4px 10px;
-      border-radius: 9999px;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .badge-published {
-      background: #dcfce7;
-      color: #15803d;
-    }
-    .badge-derived {
-      background: #e0f2fe;
-      color: #0369a1;
-    }
-    .badge-modelled {
-      background: #fef9c3;
-      color: #854d0e;
-    }
-    .badge-measured {
-      background: #ede9fe;
-      color: #6d28d9;
-    }
-    .badge-legacy {
-      background: #f1f5f9;
-      color: #475569;
-    }
-    .chart-container {
-      width: 100%;
-      height: 260px;
-      margin-bottom: 16px;
-    }
-    .source-box {
-      background: var(--color-bg-subtle, #f8fafc);
-      border-left: 3px solid var(--color-primary, #2563eb);
-      padding: 10px 14px;
-      border-radius: 4px;
-      margin-bottom: 16px;
-      font-size: 13px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-    th, td {
-      padding: 8px 12px;
-      text-align: left;
-      border-bottom: 1px solid var(--color-border, #e2e8f0);
-    }
-    th {
-      background: var(--color-bg-subtle, #f8fafc);
-      font-weight: 600;
-      color: var(--color-text-secondary, #64748b);
-    }
-    input, select {
-      padding: 6px 10px;
-      border: 1px solid var(--color-border, #cbd5e1);
-      border-radius: 4px;
-      font-family: inherit;
-      font-size: 13px;
-    }
-    button {
-      padding: 6px 12px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      border: 1px solid var(--color-border, #cbd5e1);
-      background: var(--color-bg-surface, #ffffff);
-    }
-    button.primary {
-      background: var(--color-primary, #2563eb);
-      color: #ffffff;
-      border-color: var(--color-primary, #2563eb);
-    }
-    button.danger {
-      color: #ef4444;
-      border-color: #fca5a5;
-    }
-  `;
+  protected createRenderRoot() {
+    return this;
+  }
 
   connectedCallback() {
     super.connectedCallback();

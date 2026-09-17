@@ -6,3 +6,5 @@ export * from "./device.repository";
 export * from "./sqlite-device.repository";
 export * from "./run.repository";
 export * from "./sqlite-run.repository";
+export * from "./runtime-state.repository";
+export * from "./sqlite-runtime-state.repository";

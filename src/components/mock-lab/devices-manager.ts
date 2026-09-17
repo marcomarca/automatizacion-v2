@@ -1,5 +1,6 @@
-import { LitElement, css, html } from "lit";
+import { LitElement, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+
 import type { DeviceProfile, ScenarioDefinition, SourceReference } from "../../models/scenario";
 import { simulationConfigStore } from "../../stores/simulation-config.store";
 
@@ -9,92 +10,9 @@ export class MockLabDevicesManager extends LitElement {
   @state() private devices: DeviceProfile[] = [];
   @state() private sources: SourceReference[] = [];
 
-  static styles = css`
-    :host {
-      display: block;
-    }
-    .card {
-      background: var(--color-bg-surface, #ffffff);
-      border: 1px solid var(--color-border, #e2e8f0);
-      border-radius: var(--radius-lg, 12px);
-      padding: var(--spacing-5, 20px);
-      box-shadow: var(--shadow-sm);
-    }
-    .header {
-      margin-bottom: 16px;
-    }
-    .title {
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--color-text-primary, #0f172a);
-      margin: 0;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 16px;
-      margin-top: 14px;
-    }
-    .device-card {
-      border: 1px solid var(--color-border, #e2e8f0);
-      border-radius: 8px;
-      padding: 14px;
-      background: var(--color-bg-subtle, #f8fafc);
-    }
-    .device-title {
-      font-size: 14px;
-      font-weight: 700;
-      color: #0f172a;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-    .spec-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-      margin-top: 8px;
-    }
-    .spec-table td {
-      padding: 4px 6px;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    .spec-label {
-      color: #64748b;
-      font-weight: 600;
-      width: 45%;
-    }
-    .spec-val {
-      color: #0f172a;
-      font-family: monospace;
-    }
-    .badge {
-      display: inline-flex;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 700;
-      background: #eff6ff;
-      color: #2563eb;
-    }
-    table.bindings-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-      margin-top: 10px;
-    }
-    table.bindings-table th, table.bindings-table td {
-      padding: 8px 12px;
-      border-bottom: 1px solid #e2e8f0;
-      text-align: left;
-    }
-    table.bindings-table th {
-      background: #f8fafc;
-      font-weight: 600;
-      color: #64748b;
-    }
-  `;
+  protected createRenderRoot() {
+    return this;
+  }
 
   connectedCallback() {
     super.connectedCallback();

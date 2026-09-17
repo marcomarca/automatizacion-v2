@@ -6,4 +6,5 @@ export * from "./activity-item/activity-item";
 export * from "./recommendation-card/recommendation-card";
 export * from "./lighting-zone/lighting-zone";
 export * from "./climate-zone/climate-zone";
+export * from "./device-control/device-control";
 export * from "./app-nav/app-nav";

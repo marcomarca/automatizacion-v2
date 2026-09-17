@@ -1,5 +1,6 @@
-import { LitElement, css, html } from "lit";
+import { LitElement, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+
 import type { ScenarioDefinition } from "../../models/scenario";
 import { demoStore } from "../../stores/demo.store";
 import { simulationConfigStore } from "../../stores/simulation-config.store";
@@ -11,88 +12,9 @@ export class MockLabRunControls extends LitElement {
   @state() private recordRun = true;
   @state() private lastRunMessage = "";
 
-  static styles = css`
-    :host {
-      display: block;
-    }
-    .card {
-      background: var(--color-bg-surface, #ffffff);
-      border: 1px solid var(--color-border, #e2e8f0);
-      border-radius: var(--radius-lg, 12px);
-      padding: var(--spacing-5, 20px);
-      box-shadow: var(--shadow-sm);
-    }
-    .controls-bar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 20px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--color-border, #e2e8f0);
-    }
-    button {
-      padding: 8px 16px;
-      border-radius: var(--radius-md, 6px);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      border: 1px solid var(--color-border, #cbd5e1);
-      background: var(--color-bg-surface, #ffffff);
-      color: var(--color-text-primary, #0f172a);
-      transition: all 150ms ease;
-    }
-    button:hover {
-      background: var(--color-bg-surface-hover, #f1f5f9);
-    }
-    button.primary {
-      background: var(--color-primary, #2563eb);
-      color: #ffffff;
-      border-color: var(--color-primary, #2563eb);
-    }
-    button.accent {
-      background: #10b981;
-      color: #ffffff;
-      border-color: #10b981;
-    }
-    select {
-      padding: 8px 12px;
-      border: 1px solid var(--color-border, #cbd5e1);
-      border-radius: var(--radius-md, 6px);
-      font-size: 13px;
-      font-family: inherit;
-    }
-    .telemetry-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 12px;
-    }
-    .telemetry-cell {
-      background: var(--color-bg-subtle, #f8fafc);
-      border: 1px solid var(--color-border, #e2e8f0);
-      border-radius: 8px;
-      padding: 12px;
-      text-align: center;
-    }
-    .telemetry-label {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--color-text-secondary, #64748b);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      margin-bottom: 4px;
-    }
-    .telemetry-value {
-      font-size: 18px;
-      font-weight: 800;
-      color: var(--color-text-primary, #0f172a);
-    }
-    .telemetry-unit {
-      font-size: 12px;
-      font-weight: 600;
-      color: #64748b;
-    }
-  `;
+  protected createRenderRoot() {
+    return this;
+  }
 
   connectedCallback() {
     super.connectedCallback();

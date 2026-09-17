@@ -17,7 +17,7 @@ function scanDirectory(dir: string): string[] {
 }
 
 describe("Architecture Boundary Tests", () => {
-  it("strictly prohibits views from directly importing from src/mocks/ (PLAN-v2 Section 6.1)", () => {
+  it("strictly prohibits views from directly importing from src/mocks/", () => {
     const viewsDir = join(process.cwd(), "src", "views");
     const viewFiles = scanDirectory(viewsDir);
 
@@ -33,6 +33,27 @@ describe("Architecture Boundary Tests", () => {
         content.includes("/mocks/");
 
       expect(hasMockImport).toBe(false);
+    }
+  });
+
+  it("strictly prohibits stores and views from importing from legacy ejemplo-guia", () => {
+    const srcDir = join(process.cwd(), "src");
+    const srcFiles = scanDirectory(srcDir);
+
+    for (const file of srcFiles) {
+      const content = readFileSync(file, "utf8");
+      expect(content.includes("ejemplo-guia")).toBe(false);
+    }
+  });
+
+  it("strictly prohibits direct calls to Home Assistant WebSocket or REST in active domain stores", () => {
+    const storesDir = join(process.cwd(), "src", "stores");
+    const storeFiles = scanDirectory(storesDir);
+
+    for (const file of storeFiles) {
+      const content = readFileSync(file, "utf8");
+      expect(content.includes("home-assistant.adapter")).toBe(false);
+      expect(content.includes("hassUrl")).toBe(false);
     }
   });
 });

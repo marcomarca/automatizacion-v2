@@ -1,8 +1,12 @@
 import { MockAdapter } from "../api/adapters/mock.adapter";
 import type { SimulationInput } from "../api/contracts/data-adapter";
-import { DemoEngine, type EngineStatus, type TelemetrySnapshot } from "../engine/demo-engine";
+import {
+  type DemoEngine,
+  type EngineStatus,
+  type TelemetrySnapshot,
+  demoEngine,
+} from "../engine/demo-engine";
 import type { DemoScenario } from "../engine/scenario";
-import { normalDayScenario } from "../mocks/scenarios";
 import type { Building, OptimizationImpact, SmartActivity, Zone } from "../models";
 import type { ScenarioDefinition, SimulationSample } from "../models/scenario";
 
@@ -13,7 +17,7 @@ export class DemoStore {
   private listeners: Set<() => void> = new Set();
 
   private constructor() {
-    this.engine = new DemoEngine(normalDayScenario);
+    this.engine = demoEngine;
     this.adapter = new MockAdapter(this.engine);
 
     this.engine.subscribe({

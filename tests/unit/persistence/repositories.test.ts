@@ -198,4 +198,25 @@ describe("Persistence Layer — SQLite Repositories", () => {
     const all = await deviceRepo.listProfiles();
     expect(all.length).toBe(1);
   });
+
+  it("performs get, set, delete, and list keys on SqliteRuntimeStateRepository", async () => {
+    const { SqliteRuntimeStateRepository } = await import(
+      "../../../src/persistence/repositories/sqlite-runtime-state.repository"
+    );
+    const runtimeRepo = new SqliteRuntimeStateRepository(db);
+
+    await runtimeRepo.setState("showroom.active_scene", { sceneId: "scene-presentation" });
+    await runtimeRepo.setState("automations.eco_mode", { enabled: true });
+
+    const sceneState = await runtimeRepo.getState<{ sceneId: string }>("showroom.active_scene");
+    expect(sceneState).toEqual({ sceneId: "scene-presentation" });
+
+    const keys = await runtimeRepo.getAllKeys();
+    expect(keys).toContain("showroom.active_scene");
+    expect(keys).toContain("automations.eco_mode");
+
+    await runtimeRepo.deleteState("showroom.active_scene");
+    const afterDelete = await runtimeRepo.getState("showroom.active_scene");
+    expect(afterDelete).toBeNull();
+  });
 });

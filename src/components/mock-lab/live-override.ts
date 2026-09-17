@@ -1,5 +1,6 @@
-import { LitElement, css, html } from "lit";
+import { LitElement, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+
 import type { ScenarioDefinition } from "../../models/scenario";
 import { demoStore } from "../../stores/demo.store";
 import { simulationConfigStore } from "../../stores/simulation-config.store";
@@ -15,76 +16,9 @@ export class MockLabLiveOverride extends LitElement {
   @state() private manualMode: "auto" | "manual" = "auto";
   @state() private applyFeedback = "";
 
-  static styles = css`
-    :host {
-      display: block;
-    }
-    .card {
-      background: var(--color-bg-surface, #ffffff);
-      border: 1px solid var(--color-border, #e2e8f0);
-      border-radius: var(--radius-lg, 12px);
-      padding: var(--spacing-5, 20px);
-      box-shadow: var(--shadow-sm);
-    }
-    .header {
-      margin-bottom: 16px;
-    }
-    .title {
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--color-text-primary, #0f172a);
-      margin: 0;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 16px;
-      margin-top: 14px;
-    }
-    .control-box {
-      background: var(--color-bg-subtle, #f8fafc);
-      border: 1px solid var(--color-border, #e2e8f0);
-      border-radius: 8px;
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    label {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--color-text-secondary, #64748b);
-      text-transform: uppercase;
-    }
-    input[type="range"] {
-      width: 100%;
-    }
-    select, button {
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-family: inherit;
-      border: 1px solid var(--color-border, #cbd5e1);
-      cursor: pointer;
-    }
-    button.primary {
-      background: var(--color-primary, #2563eb);
-      color: #ffffff;
-      border-color: var(--color-primary, #2563eb);
-      font-weight: 600;
-    }
-    button.accent {
-      background: #10b981;
-      color: #ffffff;
-      border-color: #10b981;
-      font-weight: 600;
-    }
-    .val-display {
-      font-size: 16px;
-      font-weight: 800;
-      color: #0f172a;
-    }
-  `;
+  protected createRenderRoot() {
+    return this;
+  }
 
   connectedCallback() {
     super.connectedCallback();

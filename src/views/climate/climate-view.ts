@@ -1,84 +1,32 @@
-import type * as echarts from "echarts";
-import { LitElement, css, html } from "lit";
+import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import "../../components";
 import { ClimateStore, demoStore } from "../../stores";
 
 @customElement("climate-view")
 export class ClimateView extends LitElement {
   @state() private climateZones = ClimateStore.getClimateZones();
   @state() private recommendation = ClimateStore.getRecommendation();
-  @state() private history = demoStore.getHistory();
   @state() private isError = demoStore.isSimulatedError();
-
   private unsubscribeStore: (() => void) | null = null;
 
-  static styles = css`
-    :host {
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-6, 24px);
-      width: 100%;
-    }
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: var(--spacing-4, 16px);
-    }
-    @media (min-width: 640px) {
-      .kpi-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-    @media (min-width: 1024px) {
-      .kpi-grid {
-        grid-template-columns: repeat(4, 1fr);
-      }
-    }
-    .zones-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: var(--spacing-4, 16px);
-    }
-    @media (min-width: 640px) {
-      .zones-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-    .section-title {
-      font-size: var(--font-size-base, 16px);
-      font-weight: var(--font-weight-semibold, 600);
-      color: var(--color-text-primary, #0f172a);
-      margin-bottom: var(--spacing-3, 12px);
-    }
-    .error-card {
-      background-color: var(--color-danger-subtle, #fef2f2);
-      border: 1px solid var(--color-danger, #dc2626);
-      border-radius: var(--radius-lg, 8px);
-      padding: var(--spacing-4, 16px);
-      color: var(--color-danger, #dc2626);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-  `;
+  protected createRenderRoot() {
+    return this;
+  }
 
   connectedCallback() {
     super.connectedCallback();
+    this.climateZones = ClimateStore.getClimateZones();
+    this.recommendation = ClimateStore.getRecommendation();
     this.unsubscribeStore = demoStore.subscribe(() => {
       this.climateZones = ClimateStore.getClimateZones();
       this.recommendation = ClimateStore.getRecommendation();
-      this.history = demoStore.getHistory();
       this.isError = demoStore.isSimulatedError();
     });
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    if (this.unsubscribeStore) {
-      this.unsubscribeStore();
-      this.unsubscribeStore = null;
-    }
+    this.unsubscribeStore?.();
   }
 
   private handleAcceptRecommendation() {
@@ -89,78 +37,21 @@ export class ClimateView extends LitElement {
     ClimateStore.dismissRecommendation();
   }
 
-  private getThermalChartOptions(): echarts.EChartsOption {
-    const times = this.history.map((h) => h.time);
-    const temps = this.history.map((h) => h.temperature);
-    const targets = this.history.map(() => 23.0);
-
-    return {
-      tooltip: {
-        trigger: "axis",
-      },
-      legend: {
-        data: ["Current Temperature", "Comfort Target (23°C)"],
-        bottom: 0,
-      },
-      grid: {
-        left: "3%",
-        right: "4%",
-        bottom: "12%",
-        top: "8%",
-        containLabel: true,
-      },
-      xAxis: {
-        type: "category",
-        data: times,
-      },
-      yAxis: {
-        type: "value",
-        name: "°C",
-        min: 18,
-        max: 28,
-      },
-      series: [
-        {
-          name: "Current Temperature",
-          type: "line",
-          data: temps,
-          lineStyle: { color: "#2563eb", width: 3 },
-          itemStyle: { color: "#2563eb" },
-          markArea: {
-            itemStyle: {
-              color: "rgba(22, 163, 74, 0.12)",
-            },
-            data: [
-              [
-                {
-                  name: "Comfort Band (22-24°C)",
-                  yAxis: 22,
-                },
-                {
-                  yAxis: 24,
-                },
-              ],
-            ],
-          },
-        },
-        {
-          name: "Comfort Target (23°C)",
-          type: "line",
-          data: targets,
-          lineStyle: { color: "#16a34a", width: 2, type: "dashed" },
-          itemStyle: { color: "#16a34a" },
-        },
-      ],
-    };
+  private handleSetTemp(zoneId: string, delta: number) {
+    const zone = this.climateZones.find((z) => z.id === zoneId);
+    if (!zone || !zone.climate) return;
+    const newTemp = Math.round((zone.climate.targetTemperature + delta) * 10) / 10;
+    demoStore.updateZoneInput(zoneId, { targetTemperature: newTemp });
   }
 
   render() {
     if (this.isError) {
       return html`
-        <div class="error-card">
-          <span>⚠️ <strong>Simulated API Error</strong>: Unable to load telemetry data.</span>
-          <button class="badge badge-demo" @click=${() => demoStore.setSimulatedError(false)}>Retry</button>
-        </div>
+        <section>
+          <h2>Error de Simulación</h2>
+          <p>⚠️ No se pudo cargar la telemetría climática.</p>
+          <button type="button" @click=${() => demoStore.setSimulatedError(false)}>Reintentar</button>
+        </section>
       `;
     }
 
@@ -173,76 +64,80 @@ export class ClimateView extends LitElement {
         : "23.0";
 
     return html`
-      <!-- Climate KPI Header -->
-      <div class="kpi-grid">
-        <metric-card
-          .label=${"Average Building Temp"}
-          .value=${`${avgTemp}°C`}
-          .unit=${""}
-          .trend=${"Optimal"}
-          .trendPositive=${true}
-          .subtext=${"Across all conditioned zones"}
-        ></metric-card>
+      <section>
+        <header>
+          <h1>Sistema de Climatización</h1>
+          <p>Supervisión de temperatura ambiente, zonas HVAC y confort térmico.</p>
+        </header>
 
-        <metric-card
-          .label=${"Target Comfort Band"}
-          .value=${"22 – 24"}
-          .unit=${"°C"}
-          .trend=${"Setpoint: 23°C"}
-          .trendPositive=${true}
-          .subtext=${"Standard ASHRAE baseline"}
-        ></metric-card>
-
-        <metric-card
-          .label=${"In-Target Compliance"}
-          .value=${"94%"}
-          .unit=${""}
-          .trend=${"HVAC Modulating"}
-          .trendPositive=${true}
-          .subtext=${"Occupied business hours"}
-        ></metric-card>
-
-        <metric-card
-          .label=${"Thermal Waste Avoided"}
-          .value=${"3.2"}
-          .unit=${"kWh"}
-          .trend=${"Preconditioning Active"}
-          .trendPositive=${true}
-          .subtext=${"Overheating prevented"}
-        ></metric-card>
-      </div>
-
-      <!-- Recommendation Alert if Available -->
-      ${
-        this.recommendation
-          ? html`
-            <recommendation-card
-              .title=${this.recommendation.title}
-              .description=${this.recommendation.description}
-              .actionLabel=${this.recommendation.actionLabel}
-              .skipLabel=${this.recommendation.skipLabel}
-              @accept=${this.handleAcceptRecommendation}
-              @skip=${this.handleDismissRecommendation}
-            ></recommendation-card>
-          `
-          : ""
-      }
-
-      <!-- Temperature vs Comfort Band Chart with Visual markArea -->
-      <chart-card
-        .title=${"Thermal Comfort Monitoring"}
-        .subtitle=${"Real-time sensor temperature tracking vs 22–24°C shaded comfort band"}
-        .options=${this.getThermalChartOptions()}
-        .height=${280}
-      ></chart-card>
-
-      <!-- Climate Zones Grid -->
-      <div>
-        <div class="section-title">Thermal Zones & HVAC Status</div>
-        <div class="zones-grid">
-          ${this.climateZones.map((zone) => html`<climate-zone .zone=${zone}></climate-zone>`)}
+        <div>
+          <h2>Métricas Térmicas Globales</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Métrica</th>
+                <th>Valor</th>
+                <th>Rango Confort</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Temperatura Promedio</td>
+                <td><strong>${avgTemp}°C</strong></td>
+                <td>22.0°C — 24.0°C</td>
+              </tr>
+              <tr>
+                <td>Zonas Condicionadas</td>
+                <td>${this.climateZones.length} zonas</td>
+                <td>Monitoreo activo</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-      </div>
+
+        ${
+          this.recommendation
+            ? html`
+                <article>
+                  <h3>💡 ${this.recommendation.title}</h3>
+                  <p>${this.recommendation.description}</p>
+                  <button type="button" @click=${this.handleAcceptRecommendation}>
+                    ${this.recommendation.actionLabel}
+                  </button>
+                  <button type="button" @click=${this.handleDismissRecommendation}>
+                    ${this.recommendation.skipLabel}
+                  </button>
+                </article>
+              `
+            : ""
+        }
+
+        <div>
+          <h2>Zonas Térmicas</h2>
+          ${this.climateZones.map(
+            (zone) => html`
+              <article>
+                <h3>${zone.name}</h3>
+                <p>
+                  <strong>Actual:</strong> ${zone.climate?.currentTemperature}°C
+                  | <strong>Consigna:</strong> ${zone.climate?.targetTemperature}°C
+                  | <strong>Modo:</strong> ${zone.climate?.mode}
+                </p>
+                <div>
+                  <button type="button" @click=${() => this.handleSetTemp(zone.id, -0.5)}>-0.5°C</button>
+                  <button type="button" @click=${() => this.handleSetTemp(zone.id, 0.5)}>+0.5°C</button>
+                </div>
+              </article>
+            `,
+          )}
+        </div>
+      </section>
     `;
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "climate-view": ClimateView;
   }
 }

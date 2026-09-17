@@ -141,11 +141,14 @@ export class InMemorySqliteClient implements DatabaseClient {
           row[col] = params[idx] !== undefined ? params[idx] : null;
         });
 
-        if (isReplace && row.id) {
-          const existingIdx = table.findIndex((r) => r.id === row.id);
-          if (existingIdx >= 0) {
-            table[existingIdx] = { ...table[existingIdx], ...row };
-            return [];
+        if (isReplace) {
+          const pk = row.id !== undefined ? "id" : row.key !== undefined ? "key" : null;
+          if (pk) {
+            const existingIdx = table.findIndex((r) => r[pk] === row[pk]);
+            if (existingIdx >= 0) {
+              table[existingIdx] = { ...table[existingIdx], ...row };
+              return [];
+            }
           }
         }
         table.push(row);

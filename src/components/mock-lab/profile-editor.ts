@@ -1,6 +1,7 @@
 import * as echarts from "echarts";
-import { LitElement, css, html } from "lit";
+import { LitElement, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+
 import type { ScenarioDefinition, ScenarioProfileDefinition } from "../../models/scenario";
 import { simulationConfigStore } from "../../stores/simulation-config.store";
 
@@ -14,104 +15,9 @@ export class MockLabProfileEditor extends LitElement {
 
   private chartInstance: echarts.ECharts | null = null;
 
-  static styles = css`
-    :host {
-      display: block;
-    }
-    .card {
-      background: var(--color-bg-surface, #ffffff);
-      border: 1px solid var(--color-border, #e2e8f0);
-      border-radius: var(--radius-lg, 12px);
-      padding: var(--spacing-5, 20px);
-      box-shadow: var(--shadow-sm);
-    }
-    .tabs {
-      display: flex;
-      gap: 8px;
-      border-bottom: 1px solid var(--color-border, #e2e8f0);
-      padding-bottom: 8px;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-    }
-    .tab-btn {
-      padding: 8px 16px;
-      border: none;
-      background: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      color: var(--color-text-secondary, #64748b);
-      border-radius: 6px;
-      transition: all 150ms ease;
-    }
-    .tab-btn:hover {
-      background: var(--color-bg-subtle, #f8fafc);
-      color: var(--color-text-primary, #0f172a);
-    }
-    .tab-btn.active {
-      background: var(--color-primary-subtle, #eff6ff);
-      color: var(--color-primary, #2563eb);
-    }
-    .chart-container {
-      width: 100%;
-      height: 280px;
-      margin-bottom: 20px;
-    }
-    .table-container {
-      overflow-x: auto;
-      margin-top: 14px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-    th, td {
-      padding: 8px 12px;
-      text-align: left;
-      border-bottom: 1px solid var(--color-border, #e2e8f0);
-    }
-    th {
-      background: var(--color-bg-subtle, #f8fafc);
-      font-weight: 600;
-      color: var(--color-text-secondary, #64748b);
-    }
-    input, select {
-      padding: 6px 10px;
-      border: 1px solid var(--color-border, #cbd5e1);
-      border-radius: 4px;
-      font-family: inherit;
-      font-size: 13px;
-    }
-    button {
-      padding: 6px 12px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      border: 1px solid var(--color-border, #cbd5e1);
-      background: var(--color-bg-surface, #ffffff);
-    }
-    button.primary {
-      background: var(--color-primary, #2563eb);
-      color: #ffffff;
-      border-color: var(--color-primary, #2563eb);
-    }
-    button.danger {
-      color: #ef4444;
-      border-color: #fca5a5;
-    }
-    .add-point-bar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-top: 14px;
-      padding: 12px;
-      background: var(--color-bg-subtle, #f8fafc);
-      border-radius: 8px;
-      flex-wrap: wrap;
-    }
-  `;
+  protected createRenderRoot() {
+    return this;
+  }
 
   updated(changedProperties: Map<string, unknown>) {
     if (

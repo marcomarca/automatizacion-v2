@@ -1,5 +1,6 @@
-import { LitElement, css, html } from "lit";
+import { LitElement, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+
 import type { ScenarioDefinition } from "../../models/scenario";
 import { demoStore } from "../../stores/demo.store";
 import { simulationConfigStore } from "../../stores/simulation-config.store";
@@ -13,137 +14,9 @@ export class MockLabScenarioManager extends LitElement {
   @state() private showDeleteDialog = false;
   @state() private showResetDbDialog = false;
 
-  static styles = css`
-    :host {
-      display: block;
-    }
-    .card {
-      background: var(--color-bg-surface, #ffffff);
-      border: 1px solid var(--color-border, #e2e8f0);
-      border-radius: var(--radius-lg, 12px);
-      padding: var(--spacing-5, 20px);
-      box-shadow: var(--shadow-sm);
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-    .title {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--color-text-primary, #0f172a);
-      margin: 0;
-    }
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    select, input, textarea {
-      padding: 8px 12px;
-      border: 1px solid var(--color-border, #cbd5e1);
-      border-radius: var(--radius-md, 6px);
-      font-family: inherit;
-      font-size: 14px;
-      background: var(--color-bg-surface, #ffffff);
-    }
-    select {
-      font-weight: 600;
-      color: var(--color-text-primary, #0f172a);
-    }
-    button {
-      padding: 8px 14px;
-      border-radius: var(--radius-md, 6px);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      border: 1px solid var(--color-border, #cbd5e1);
-      background: var(--color-bg-surface, #ffffff);
-      color: var(--color-text-primary, #0f172a);
-      transition: all 150ms ease;
-    }
-    button:hover {
-      background: var(--color-bg-surface-hover, #f1f5f9);
-    }
-    button.primary {
-      background: var(--color-primary, #2563eb);
-      color: #ffffff;
-      border-color: var(--color-primary, #2563eb);
-    }
-    button.primary:hover {
-      background: #1d4ed8;
-    }
-    button.danger {
-      background: #ef4444;
-      color: #ffffff;
-      border-color: #ef4444;
-    }
-    button.danger:hover {
-      background: #dc2626;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 14px;
-      margin-top: 14px;
-    }
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    label {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--color-text-secondary, #64748b);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .meta-badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 4px 8px;
-      background: var(--color-bg-subtle, #f8fafc);
-      border-radius: 4px;
-      font-size: 12px;
-      color: var(--color-text-secondary, #64748b);
-      margin-right: 8px;
-    }
-    .dialog-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-    .dialog {
-      background: #ffffff;
-      padding: 24px;
-      border-radius: 12px;
-      max-width: 440px;
-      width: 90%;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-    }
-    .dialog h3 {
-      margin-top: 0;
-      font-size: 18px;
-    }
-    .dialog-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      margin-top: 20px;
-    }
-  `;
+  protected createRenderRoot() {
+    return this;
+  }
 
   connectedCallback() {
     super.connectedCallback();
