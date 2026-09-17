@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Witmind Showroom — Aero Transparente</title>
+    <style>
+      *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html, body {
+        width: 100%;
+        min-height: 100dvh;
+        background-color: #020817;
+        color: #ffffff;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        overflow-x: hidden;
+      }
+
+      /* Test & Version Switcher Top Bar */
+      .version-top-bar {
+        background: rgba(2, 8, 23, 0.75);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-bottom: 1px solid rgba(185, 226, 255, 0.2);
+        padding: 8px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 13px;
+        position: sticky;
+        top: 0;
+        z-index: 99999;
+      }
+      .version-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .version-badge {
+        background: linear-gradient(135deg, #40e8ff, #238cff);
+        color: #020817;
+        padding: 3px 9px;
+        border-radius: 9999px;
+        font-weight: 800;
+        font-size: 11px;
+        letter-spacing: 0.04em;
+      }
+      .version-links {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .version-links a {
+        color: #93c5fd;
+        text-decoration: none;
+        padding: 4px 10px;
+        background: rgba(15, 35, 75, 0.6);
+        border: 1px solid rgba(185, 226, 255, 0.25);
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        transition: all 0.15s;
+      }
+      .version-links a:hover {
+        background: rgba(35, 95, 180, 0.8);
+        color: #ffffff;
+        border-color: #40e8ff;
+      }
+      .version-links a.current {
+        background: rgba(64, 232, 255, 0.2);
+        color: #40e8ff;
+        border-color: #40e8ff;
+        font-weight: 700;
+      }
+
+      showroom-aero {
+        display: block;
+        width: 100%;
+        min-height: calc(100dvh - 38px);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Barra de Selección de Variantes de Diseño -->
+    <div class="version-top-bar">
+      <div class="version-brand">
+        <span class="version-badge">AERO GLASS</span>
+        <strong>Showroom Aero Transparente</strong>
+        <span style="color: rgba(185, 226, 255, 0.7); font-size: 12px;">• Glassmorphism + Tablet Spatial</span>
+      </div>
+      <div class="version-links">
+        <span style="font-size: 11px; color: rgba(185, 226, 255, 0.6); font-weight: 700;">VARIANTES:</span>
+        <a href="/showroom-witmind.html" style="background: rgba(242, 101, 34, 0.2); border-color: #f26522; color: #ffedd5;">🏛️ Witmind Glass</a>
+        <a href="/showroom-aero.html" class="current">💎 Aero Glass</a>
+        <a href="/showroom-ios.html">📱 iOS Tablet</a>
+        <a href="/showroom.html">🎛️ Lovelace HA (Original)</a>
+        <a href="/dashboard-bms.html">🌌 BMS Dark</a>
+        <a href="/dashboard-matrix.html">📟 SCADA Matrix</a>
+        <a href="/dashboard-exec.html">☀️ Executive</a>
+        <a href="/#/overview" style="background: rgba(242, 101, 34, 0.25); border-color: rgba(242, 101, 34, 0.5); color: #ffedd5;">⚡ App Shell ↗</a>
+      </div>
+    </div>
+
+    <!-- Componente Web Showroom Aero -->
+    <showroom-aero id="aeroPanel"></showroom-aero>
+
+    <!-- Proveedor Genérico Mock Home Assistant (Reactivo) -->
+    <script src="/mock/mock-hass.js"></script>
+
+    <!-- Script del Componente Aero -->
+    <script src="/mock/showroom-aero.js"></script>
+
+    <!-- Registro Reactivo del Consumidor Mock Hass -->
+    <script>
+      function registerAero() {
+        const panel = document.getElementById("aeroPanel");
+        if (panel && window.registerMockHassConsumer) {
+          window.registerMockHassConsumer(panel);
+        }
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", registerAero);
+      } else {
+        registerAero();
+      }
+    </script>
+  </body>
+</html>

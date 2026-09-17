@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Witmind Showroom — Architectural Glass</title>
+    <style>
+      *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html, body {
+        width: 100%;
+        min-height: 100dvh;
+        background-color: #020609;
+        color: #ffffff;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        overflow-x: hidden;
+      }
+
+      /* Dev & Version Switcher Top Bar */
+      .version-top-bar {
+        background: rgba(4, 10, 15, 0.85);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 8px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 13px;
+        position: sticky;
+        top: 0;
+        z-index: 99999;
+      }
+      .version-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .version-badge {
+        background: #f26522;
+        color: #ffffff;
+        padding: 3px 9px;
+        border-radius: 9999px;
+        font-weight: 800;
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        box-shadow: 0 0 12px rgba(242, 101, 34, 0.35);
+      }
+      .version-links {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .version-links a {
+        color: rgba(255, 255, 255, 0.7);
+        text-decoration: none;
+        padding: 4px 10px;
+        background: rgba(25, 30, 36, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        transition: all 0.15s;
+      }
+      .version-links a:hover {
+        background: rgba(242, 101, 34, 0.2);
+        color: #ffffff;
+        border-color: #f26522;
+      }
+      .version-links a.current {
+        background: rgba(242, 101, 34, 0.2);
+        color: #f26522;
+        border-color: #f26522;
+        font-weight: 700;
+      }
+
+      showroom-witmind {
+        display: block;
+        width: 100%;
+        min-height: calc(100dvh - 38px);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Barra de Selección de Variantes de Diseño -->
+    <div class="version-top-bar">
+      <div class="version-brand">
+        <span class="version-badge">WITMIND GLASS</span>
+        <strong>Showroom Witmind</strong>
+        <span style="color: rgba(255, 255, 255, 0.55); font-size: 12px;">• Architectural Smoked Glass & Lighting Accent</span>
+      </div>
+      <div class="version-links">
+        <span style="font-size: 11px; color: rgba(255, 255, 255, 0.5); font-weight: 700;">VARIANTES:</span>
+        <a href="/showroom-witmind.html" class="current">🏛️ Witmind Glass</a>
+        <a href="/showroom-aero.html">💎 Showroom Aero</a>
+        <a href="/showroom-ios.html">📱 Showroom iOS</a>
+        <a href="/showroom.html">🎛️ Lovelace HA (Original)</a>
+        <a href="/dashboard-bms.html">🌌 BMS Dark</a>
+        <a href="/dashboard-matrix.html">📟 SCADA Matrix</a>
+        <a href="/dashboard-exec.html">☀️ Executive</a>
+        <a href="/#/overview" style="background: rgba(242, 101, 34, 0.3); border-color: rgba(242, 101, 34, 0.6); color: #ffedd5;">⚡ App Shell ↗</a>
+      </div>
+    </div>
+
+    <!-- Componente Web Showroom Witmind Glass -->
+    <showroom-witmind id="witmindPanel"></showroom-witmind>
+
+    <!-- Proveedor Genérico Mock Home Assistant (Reactivo) -->
+    <script src="/mock/mock-hass.js"></script>
+
+    <!-- Script del Componente Witmind Glass -->
+    <script src="/mock/showroom-witmind.js"></script>
+
+    <!-- Registro Reactivo del Consumidor Mock Hass -->
+    <script>
+      function registerWitmind() {
+        const panel = document.getElementById("witmindPanel");
+        if (panel && window.registerMockHassConsumer) {
+          window.registerMockHassConsumer(panel);
+        }
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", registerWitmind);
+      } else {
+        registerWitmind();
+      }
+    </script>
+  </body>
+</html>
